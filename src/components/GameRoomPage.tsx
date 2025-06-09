@@ -1,0 +1,111 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Room, User } from '@/lib/api';
+import GameRoom from './GameRoom';
+import UsernameForm from './UsernameForm';
+
+interface GameRoomPageProps {
+  roomData: Room;
+}
+
+export default function GameRoomPage({ roomData }: GameRoomPageProps) {
+  const [user, setUser] = useState<User | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Ensure component is mounted before accessing localStorage
+  useEffect(() => {
+    setMounted(true);
+  }, []);  // Load user from session storage
+  useEffect(() => {
+    if (!mounted) return;
+    
+    console.log('GameRoomPage: Loading user from localStorage...');
+    // Use the same localStorage keys as the main app
+    const lastUsername = localStorage.getItem('lastUsername');
+    const lastUserId = localStorage.getItem('lastUserId');
+    
+    console.log('GameRoomPage: Found in localStorage:', { lastUsername, lastUserId });
+    
+    if (lastUsername && lastUserId) {
+      const userData = {
+        id: lastUserId,
+        username: lastUsername,
+        isOnline: true
+      };
+      console.log('GameRoomPage: Setting user:', userData);
+      setUser(userData);    } else {
+      console.log('GameRoomPage: No user found in localStorage');
+    }
+    
+    setLoading(false);
+  }, [mounted]);
+
+  // Redirect to home if no user found after a delay
+  useEffect(() => {
+    if (!loading && !user) {
+      console.log('GameRoomPage: No user found, redirecting to home in 2 seconds...');
+      const timeout = setTimeout(() => {
+        router.push('/');
+      }, 2000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [loading, user, router]);
+
+  const handleLogin = (userData: User) => {
+    setUser(userData);
+    // Use the same localStorage keys as the main app
+    localStorage.setItem('lastUsername', userData.username);
+    localStorage.setItem('lastUserId', userData.id);
+  };
+
+
+  const handleLeaveRoom = () => {
+    router.push('/');
+  };
+  // If not mounted yet, show loading to prevent hydration mismatch
+  if (!mounted || loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no user, show login form
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <div className="max-w-md w-full">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Rejoindre la partie {roomData.id}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              Connectez-vous pour rejoindre cette partie Skull King
+            </p>
+            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+              Redirection vers l'accueil dans quelques secondes...
+            </div>
+          </div>
+          <UsernameForm onUsernameSubmit={handleLogin} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <GameRoom
+      user={user}
+      roomId={roomData.id}
+      onLeaveRoom={handleLeaveRoom}
+    />
+  );
+}
