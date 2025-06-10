@@ -1,19 +1,19 @@
 [Unit]
-Description=Skull King Game Server
+Description=Skull King Game Server (PM2)
 After=network.target
 
 [Service]
-Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/skullking
-ExecStart=/usr/bin/node server.js
-Restart=always
-RestartSec=10
+Type=oneshot
+RemainAfterExit=yes
+User=sydnec
+Group=sydnec
+WorkingDirectory=/home/sydnec/skullking_js
+ExecStart=/usr/bin/pm2 start ecosystem.config.js --env production
+ExecStop=/usr/bin/pm2 stop skullking
+ExecReload=/usr/bin/pm2 restart skullking
 Environment=NODE_ENV=production
 Environment=PORT=3000
-Environment=DATABASE_URL=file:./prisma/db/production.db
-EnvironmentFile=-/home/pi/skullking/.env
+EnvironmentFile=-/home/sydnec/skullking_js/.env.production
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=skull-king
@@ -23,7 +23,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/home/pi/skullking
+ReadWritePaths=/home/sydnec/skullking_js
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

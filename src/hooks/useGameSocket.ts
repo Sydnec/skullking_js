@@ -36,8 +36,18 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
   useEffect(() => {
     // Only initialize socket on client side
     if (!isMounted) return;
+    
+    // Determine socket URL based on environment
+    // In production, use relative URL (same origin)
+    // In development, use localhost with port
+    const socketUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+      ? '' // Use relative URL in production (same origin)
+      : `http://localhost:${process.env.PORT || 3000}`;
+    
+    console.log('Connecting to socket at:', socketUrl || 'same origin');
+    
     // Initialize socket connection
-    const socketInstance = io(`http://localhost:${process.env.PORT || 3000}`, {
+    const socketInstance = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

@@ -15,8 +15,17 @@ function SocketTestPage() {
   };
 
   useEffect(() => {
+    // Determine socket URL based on environment
+    // In production, use relative URL (same origin)
+    // In development, use localhost with port
+    const socketUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+      ? '' // Use relative URL in production (same origin)
+      : 'http://localhost:3000';
+    
+    console.log('Connecting to socket at:', socketUrl || 'same origin');
+    
     // Initialize socket connection
-    const socketInstance = io('http://localhost:3001', {
+    const socketInstance = io(socketUrl, {
       transports: ['websocket', 'polling']
     });
 
