@@ -481,4 +481,32 @@ export class SkullKingEngine {
       player.score > winner.score ? player : winner
     );
   }
+
+  /**
+   * Force game to end state for testing purposes
+   */
+  static forceGameEnd(gameState: SkullKingGameState): SkullKingGameState {
+    // Simulate final scores
+    const finalPlayers = gameState.players.map(player => ({
+      ...player,
+      score: Math.floor(Math.random() * 200) + 50 // Random scores between 50-250
+    }));
+    
+    const winner = finalPlayers.reduce((prev, current) => 
+      (current.score > prev.score) ? current : prev
+    );
+    
+    return {
+      ...gameState,
+      players: finalPlayers,
+      gamePhase: 'GAME_END' as const,
+      winnerId: winner.id,
+      currentRound: {
+        ...gameState.currentRound!,
+        number: 10,
+        completed: true
+      },
+      maxRounds: 10
+    };
+  }
 }
