@@ -1,7 +1,7 @@
 // Skull King Game Types
 
-export type CardSuit = 'BLACK' | 'RED' | 'BLUE' | 'YELLOW';
-export type CardType = 'NUMBER' | 'SKULL_KING' | 'PIRATE' | 'MERMAID' | 'LOOT' | 'ESCAPE';
+export type CardSuit = 'BLACK' | 'GREEN' | 'PURPLE' | 'YELLOW';
+export type CardType = 'NUMBER' | 'SKULL_KING' | 'PIRATE' | 'MERMAID' | 'TIGRESS' | 'ESCAPE';
 
 export interface Card {
   id: string;
@@ -24,7 +24,7 @@ export interface Player {
 
 export interface Trick {
   id: string;
-  cards: { playerId: string; card: Card }[];
+  cards: { playerId: string; card: Card; tigressChoice?: 'PIRATE' | 'ESCAPE' }[];
   winnerId: string | null;
   leadSuit?: CardSuit;
 }
@@ -65,6 +65,7 @@ export interface GameAction {
   payload?: {
     bid?: number;
     cardId?: string;
+    tigressChoice?: 'PIRATE' | 'ESCAPE';
   };
 }
 

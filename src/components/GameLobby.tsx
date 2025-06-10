@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { RoomService, Room, User } from '@/lib/api';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 interface GameLobbyProps {
   user: User;
@@ -17,7 +17,7 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(true);
   const [error, setError] = useState('');
-  const [socket, setSocket] = useState<Socket | null>(null);
+  // Removed unused socket state
   const router = useRouter();
   const isMountedRef = useRef(true);  // Load rooms on component mount and set up auto-refresh
   useEffect(() => {
@@ -49,18 +49,15 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
     });
 
     socketInstance.on('connect', () => {
-      console.log('GameLobby: Connected to socket server');
+      // Connected to socket server
     });
 
-    socketInstance.on('room-list-updated', (data: { action: string; roomId: string }) => {
-      console.log('GameLobby: Room list updated:', data);
-      // Immediately refresh the room list when notified
+    socketInstance.on('room-list-updated', () => {
+      // Room list updated, refresh the list
       if (isMountedRef.current) {
         loadRooms();
       }
     });
-
-    setSocket(socketInstance);
 
     return () => {
       socketInstance.close();
@@ -90,17 +87,14 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
         setIsLoadingRooms(false);
       }
     }
-  };const handleCreateGame = async () => {
+  };  const handleCreateGame = async () => {
     setIsCreatingGame(true);
     try {
-      console.log('Creating room for user:', user);
-      
       // Ensure user session is saved before navigation
       localStorage.setItem('lastUsername', user.username);
       localStorage.setItem('lastUserId', user.id);
       
       const response = await RoomService.createRoom(user.id);
-      console.log('Room created:', response.room);
       
       // Navigate to the room page
       router.push(`/${response.room.id}`);
@@ -130,7 +124,6 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
       localStorage.setItem('lastUserId', user.id);
       
       const response = await RoomService.joinRoom(gameCode, user.id);
-      console.log('Joined room:', response.room);
       
       // Navigate to the room page
       router.push(`/${response.room.id}`);
@@ -148,14 +141,11 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
       setError('Vous êtes déjà dans cette partie');
       return;
     }    try {
-      console.log('Joining room directly for user:', user);
-      
       // Ensure user session is saved before navigation
       localStorage.setItem('lastUsername', user.username);
       localStorage.setItem('lastUserId', user.id);
       
       const response = await RoomService.joinRoom(roomCode, user.id);
-      console.log('Joined room directly:', response.room);
       
       // Navigate to the room page
       router.push(`/${response.room.id}`);

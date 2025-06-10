@@ -2,13 +2,13 @@ import { Card, CardSuit, Player, Round, Trick, SkullKingGameState, SCORING } fro
 
 export class SkullKingEngine {
   /**
-   * Create a complete deck for Skull King
+   * Create a complete deck for Skull King (70 cards)
    */
   static createDeck(): Card[] {
     const deck: Card[] = [];
     
-    // Number cards (1-14 in each of 4 suits)
-    const suits: CardSuit[] = ['BLACK', 'RED', 'BLUE', 'YELLOW'];
+    // Number cards (1-14 in each of 4 suits = 56 cards)
+    const suits: CardSuit[] = ['BLACK', 'GREEN', 'PURPLE', 'YELLOW'];
     suits.forEach(suit => {
       for (let value = 1; value <= 14; value++) {
         deck.push({
@@ -21,7 +21,7 @@ export class SkullKingEngine {
       }
     });
 
-    // Special cards
+    // Special cards (14 cards total)
     // Pirates (5 cards)
     for (let i = 1; i <= 5; i++) {
       deck.push({
@@ -31,12 +31,12 @@ export class SkullKingEngine {
       });
     }
 
-    // Mermaids (2 cards)
+    // Sirènes/Mermaids (2 cards)
     for (let i = 1; i <= 2; i++) {
       deck.push({
         id: `MERMAID_${i}`,
         type: 'MERMAID',
-        name: `Mermaid ${i}`
+        name: `Sirène ${i}`
       });
     }
 
@@ -47,21 +47,19 @@ export class SkullKingEngine {
       name: 'Skull King'
     });
 
-    // Loot cards (2 cards) - act as either pirates or escape
-    for (let i = 1; i <= 2; i++) {
-      deck.push({
-        id: `LOOT_${i}`,
-        type: 'LOOT',
-        name: `Loot ${i}`
-      });
-    }
+    // Tigresse (1 card)
+    deck.push({
+      id: 'TIGRESS',
+      type: 'TIGRESS',
+      name: 'Tigresse'
+    });
 
-    // Escape cards (5 cards)
+    // Fuites/Escape cards (5 cards)
     for (let i = 1; i <= 5; i++) {
       deck.push({
         id: `ESCAPE_${i}`,
         type: 'ESCAPE',
-        name: `Escape ${i}`
+        name: `Fuite ${i}`
       });
     }
 
@@ -121,9 +119,12 @@ export class SkullKingEngine {
     }
       // If only mermaids are played (no Skull King), check for pirates
     if (mermaidCards.length > 0 && !skullKingCard) {
-      const pirateCards = trick.cards.filter(c => c.card.type === 'PIRATE' || c.card.type === 'LOOT');
+      const pirateCards = trick.cards.filter(c => 
+        c.card.type === 'PIRATE' || 
+        (c.card.type === 'TIGRESS' && c.tigressChoice === 'PIRATE')
+      );
       if (pirateCards.length > 0) {
-        // Mermaid loses to pirates/loot
+        // Mermaid loses to pirates/tigress acting as pirate
         return pirateCards[0].playerId;
       } else {
         // No pirates, mermaid wins
@@ -131,14 +132,17 @@ export class SkullKingEngine {
       }
     }
     
-    // Regular resolution: Pirates beat number cards, highest number in leading suit wins
+    // Regular resolution: Pirates/Tigress-as-Pirate beat number cards, highest number in leading suit wins
     const leadCard = trick.cards[0];
     const leadSuit = leadCard.card.suit;
     
-    // Check for pirates/loot (they beat number cards)
-    const pirateCards = trick.cards.filter(c => c.card.type === 'PIRATE' || c.card.type === 'LOOT');
+    // Check for pirates/tigress acting as pirate (they beat number cards)
+    const pirateCards = trick.cards.filter(c => 
+      c.card.type === 'PIRATE' || 
+      (c.card.type === 'TIGRESS' && c.tigressChoice === 'PIRATE')
+    );
     if (pirateCards.length > 0) {
-      return pirateCards[0].playerId; // First pirate played wins
+      return pirateCards[0].playerId; // First pirate/tigress-as-pirate played wins
     }
     
     // Check for cards following suit
@@ -314,7 +318,7 @@ export class SkullKingEngine {
   /**
    * Play a card
    */
-  static playCard(gameState: SkullKingGameState, playerId: string, cardId: string): SkullKingGameState {
+  static playCard(gameState: SkullKingGameState, playerId: string, cardId: string, tigressChoice?: 'PIRATE' | 'ESCAPE'): SkullKingGameState {
     const currentRound = gameState.currentRound;
     if (!currentRound || !currentRound.playingPhase) {
       throw new Error('Not in playing phase');
@@ -348,9 +352,20 @@ export class SkullKingEngine {
       winnerId: null
     };
 
+    // Create card entry with optional tigressChoice
+    const cardEntry: { playerId: string; card: Card; tigressChoice?: 'PIRATE' | 'ESCAPE' } = {
+      playerId,
+      card
+    };
+
+    // Add tigress choice if it's a tigress card and choice is provided
+    if (card.type === 'TIGRESS' && tigressChoice) {
+      cardEntry.tigressChoice = tigressChoice;
+    }
+
     const updatedTrick = {
       ...currentTrick,
-      cards: [...currentTrick.cards, { playerId, card }]
+      cards: [...currentTrick.cards, cardEntry]
     };    // Check if trick is complete (all players played)
     const trickComplete = updatedTrick.cards.length === gameState.players.length;
     let updatedRound: Round = { ...currentRound, currentTrick: updatedTrick };

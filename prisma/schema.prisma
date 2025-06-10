@@ -9,6 +9,9 @@ generator client {
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
+  // Pour Vercel, on peut aussi utiliser PostgreSQL :
+  // provider = "postgresql"
+  // url      = env("DATABASE_URL")
 }
 
 model User {
@@ -26,13 +29,13 @@ model User {
 }
 
 model Room {
-  id          String     @id @default(cuid())
-  code        String     @unique // Code à 6 caractères (chiffres & majuscules)
-  name        String?    // Nom optionnel, peut être null
-  maxPlayers  Int        @default(8)
-  status      RoomStatus @default(WAITING)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id         String     @id @default(cuid())
+  code       String     @unique // Code à 6 caractères (chiffres & majuscules)
+  name       String? // Nom optionnel, peut être null
+  maxPlayers Int        @default(8)
+  status     RoomStatus @default(WAITING)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   // Relations
   hostId   String
@@ -44,7 +47,7 @@ model Room {
 }
 
 model RoomPlayer {
-  id       String @id @default(cuid())
+  id       String   @id @default(cuid())
   userId   String
   roomId   String
   joinedAt DateTime @default(now())
@@ -60,13 +63,13 @@ model RoomPlayer {
 model GameData {
   id     String @id @default(cuid())
   roomId String @unique
-  
+
   // Données de jeu spécifiques au Skull King
-  currentRound  Int      @default(1)
-  maxRounds     Int      @default(10)
-  gameState     Json     // État du jeu en JSON
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  currentRound Int      @default(1)
+  maxRounds    Int      @default(10)
+  gameState    Json // État du jeu en JSON
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)

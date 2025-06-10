@@ -223,7 +223,7 @@ function processGameAction(gameState: SkullKingGameState, action: GameAction): S
 
     case 'PLAY_CARD':
       if (action.payload?.cardId) {
-        return SkullKingEngine.playCard(gameState, action.playerId, action.payload.cardId);
+        return SkullKingEngine.playCard(gameState, action.playerId, action.payload.cardId, action.payload.tigressChoice);
       }
       break;
 

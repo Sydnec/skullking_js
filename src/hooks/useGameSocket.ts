@@ -50,7 +50,7 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
       joinAttemptRef.current = false; // Reset join attempt flag
     });
 
-    socketInstance.on('disconnect', (reason) => {
+    socketInstance.on('disconnect', (reason: string) => {
       console.log('Disconnected from socket server, reason:', reason);
       setConnected(false);
       setHasJoined(false); // Reset join status on disconnect
@@ -88,6 +88,18 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
       alert(data.message);
       // Redirect back to home
       window.location.href = '/';
+    });
+
+    socketInstance.on('game-error', (data: { type: string; message: string; action: string }) => {
+      console.log('Game error received:', data);
+      // Display error message to user
+      alert(data.message);
+    });
+
+    socketInstance.on('trick-completed', (data: { winner: { playerId: string; playerName: string }; completedTrick: unknown }) => {
+      console.log('Trick completed:', data);
+      // Emit a custom event that the GameRoom component can listen to
+      window.dispatchEvent(new CustomEvent('trickCompleted', { detail: data }));
     });
 
     socketInstance.on('error', (error: string) => {
@@ -137,7 +149,7 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
   }, [socket, connected, hasJoined, roomId, userId]);
   const sendGameAction = useCallback((action: Omit<GameAction, 'playerId'>) => {
     if (socket && connected) {
-      socket.emit('game-action', {
+      socket.emit('gameAction', {
         ...action,
         playerId: userId,
         roomId

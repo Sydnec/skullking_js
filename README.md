@@ -83,6 +83,44 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000)
 - **Pari raté** : -10 points par pli de différence
 - **Bonus spéciaux** pour certaines combinaisons
 
+## 🚀 Déploiement
+
+### Déploiement local
+
+1. **Préparez le déploiement**
+```bash
+./prepare-deployment.sh
+```
+
+2. **Démarrez le serveur de production**
+```bash
+npm run build
+npm start
+```
+
+### Déploiement sur Vercel
+
+1. **Préparez votre projet**
+```bash
+./prepare-deployment.sh
+```
+
+2. **Déployez via le dashboard Vercel**
+   - Connectez votre repository GitHub
+   - Configurez les variables d'environnement
+   - Déployez automatiquement
+
+3. **Variables d'environnement requises**
+```env
+DATABASE_URL=postgresql://...
+SESSION_SECRET=your-secure-secret
+JWT_SECRET=your-jwt-secret
+ALLOWED_ORIGINS=https://your-app.vercel.app
+NODE_ENV=production
+```
+
+📖 **Guide complet** : [DEPLOYMENT.md](./DEPLOYMENT.md)
+
 ## 🗂️ Structure du projet
 
 ```
@@ -123,7 +161,7 @@ DATABASE_URL="file:./dev.db"
 PORT=3000
 ```
 
-<!-- ## 🤝 Contribution
+## 🤝 Contribution
 
 Les contributions sont les bienvenues ! N'hésitez pas à :
 
@@ -135,12 +173,10 @@ Les contributions sont les bienvenues ! N'hésitez pas à :
 
 ## 📝 Roadmap
 
+- [ ] Amélioration de l'UI/UX
 - [ ] Ajout d'animations pour les cartes
 - [ ] Mode spectateur
-- [ ] Système de tournois
 - [ ] Chat intégré
-- [ ] Statistiques détaillées
-- [ ] Sauvegarde automatique des parties -->
 
 ## 📄 Licence
 

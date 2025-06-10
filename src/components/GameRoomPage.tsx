@@ -23,12 +23,9 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
   useEffect(() => {
     if (!mounted) return;
     
-    console.log('GameRoomPage: Loading user from localStorage...');
     // Use the same localStorage keys as the main app
     const lastUsername = localStorage.getItem('lastUsername');
     const lastUserId = localStorage.getItem('lastUserId');
-    
-    console.log('GameRoomPage: Found in localStorage:', { lastUsername, lastUserId });
     
     if (lastUsername && lastUserId) {
       const userData = {
@@ -36,9 +33,7 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
         username: lastUsername,
         isOnline: true
       };
-      console.log('GameRoomPage: Setting user:', userData);
-      setUser(userData);    } else {
-      console.log('GameRoomPage: No user found in localStorage');
+      setUser(userData);
     }
     
     setLoading(false);
@@ -47,7 +42,6 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
   // Redirect to home if no user found after a delay
   useEffect(() => {
     if (!loading && !user) {
-      console.log('GameRoomPage: No user found, redirecting to home in 2 seconds...');
       const timeout = setTimeout(() => {
         router.push('/');
       }, 2000);
@@ -92,7 +86,7 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
               Connectez-vous pour rejoindre cette partie Skull King
             </p>
             <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              Redirection vers l'accueil dans quelques secondes...
+              Redirection vers laccueil dans quelques secondes...
             </div>
           </div>
           <UsernameForm onUsernameSubmit={handleLogin} />
