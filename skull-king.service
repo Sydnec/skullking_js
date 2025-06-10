@@ -1,0 +1,36 @@
+[Unit]
+Description=Skull King Game Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/skullking
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=DATABASE_URL=file:./prisma/db/production.db
+EnvironmentFile=-/home/pi/skullking/.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=skull-king
+
+# Limites de sécurité
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/pi/skullking
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Limites de ressources
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
