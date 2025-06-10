@@ -1,0 +1,88 @@
+// Skull King Game Types
+
+export type CardSuit = 'BLACK' | 'GREEN' | 'PURPLE' | 'YELLOW';
+export type CardType = 'NUMBER' | 'SKULL_KING' | 'PIRATE' | 'MERMAID' | 'TIGRESS' | 'ESCAPE';
+
+export interface Card {
+  id: string;
+  type: CardType;
+  suit?: CardSuit; // Only for number cards
+  value?: number; // 1-14 for number cards, undefined for special cards
+  name: string;
+}
+
+export interface Player {
+  id: string;
+  username: string;
+  cards: Card[];
+  bid: number | null; // Player's bid for current round
+  tricksWon: number;
+  score: number;
+  isReady: boolean;
+  isOnline?: boolean; // Optional field for online status
+}
+
+export interface Trick {
+  id: string;
+  cards: { playerId: string; card: Card; tigressChoice?: 'PIRATE' | 'ESCAPE' }[];
+  winnerId: string | null;
+  leadSuit?: CardSuit;
+}
+
+export interface Round {
+  number: number;
+  biddingPhase: boolean;
+  playingPhase: boolean;
+  completed: boolean;
+  tricks: Trick[];
+  currentTrick: Trick | null;
+  currentPlayerId: string | null;
+  dealerId: string;
+}
+
+export interface SkullKingGameState {
+  id: string;
+  roomId: string;
+  players: Player[];
+  creatorId: string; // ID du créateur de la room
+  roomStatus: 'LOBBY' | 'GAME_STARTED' | 'GAME_ENDED'; // Statut de la room
+  currentRound: Round | null;
+  maxRounds: number;
+  gamePhase: 'WAITING' | 'BIDDING' | 'PLAYING' | 'ROUND_END' | 'GAME_END';
+  winnerId: string | null;
+  deck: Card[];
+  settings?: {
+    maxPlayers: number;
+    roundsToPlay: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface GameAction {
+  type: 'BID' | 'PLAY_CARD' | 'START_GAME' | 'START_ROUND' | 'END_ROUND';
+  playerId: string;
+  payload?: {
+    bid?: number;
+    cardId?: string;
+    tigressChoice?: 'PIRATE' | 'ESCAPE';
+  };
+}
+
+// Scoring constants
+export const SCORING = {
+  BID_BONUS: 20, // Bonus for making exact bid
+  SKULL_KING_BONUS: 30, // Bonus for capturing with Skull King
+  PIRATE_BONUS: 20, // Bonus for capturing with Pirate
+  FAIL_PENALTY: -10, // Penalty per trick difference when failing bid
+  ZERO_BID_BONUS: 10, // Bonus per round for successful zero bid
+} as const;
+
+// Card hierarchy for trick resolution
+export const CARD_POWER = {
+  ESCAPE: 0,
+  NUMBER: 1,
+  PIRATE: 2,
+  SKULL_KING: 3,
+  MERMAID: 4, // Special: beats pirates but not numbers in suit
+} as const;
