@@ -6,6 +6,7 @@ import { Player, Card } from '@/types/skull-king';
 import { useGameSocket } from '@/hooks/useGameSocket';
 import ConfirmDialog from './ConfirmDialog';
 import CardImage from './CardImage';
+import Scoreboard from './Scoreboard';
 
 interface GameRoomProps {
   user: User;
@@ -215,6 +216,32 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
           )}
         </div>
       </div>
+    );
+  }
+
+  // Si le jeu est terminé, afficher le scoreboard
+  if (gameState?.gamePhase === 'GAME_END') {
+    const winner = gameState.players.reduce((prev, current) => 
+      (current.score > prev.score) ? current : prev
+    );
+    
+    const handleReturnToLobby = () => {
+      // Si l'utilisateur est le créateur de la room, supprimer la room
+      // Sinon, juste quitter la room
+      if (currentPlayer?.id === gameState.creatorId) {
+        deleteRoom();
+      } else {
+        leaveGame();
+      }
+      onLeaveRoom();
+    };
+    
+    return (
+      <Scoreboard
+        players={gameState.players}
+        winner={winner}
+        onReturnToLobby={handleReturnToLobby}
+      />
     );
   }
 

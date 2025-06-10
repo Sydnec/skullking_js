@@ -213,25 +213,6 @@ export function setupGameSocketHandlers(io) {
   // Start periodic save
   startPeriodicSave();
   
-  // Connection timeout cleanup
-  const connectionCleanup = setInterval(() => {
-    // Clean up old inactive connections
-    for (const [roomId, users] of roomUsers.entries()) {
-      const activeUsers = users.filter(user => {
-        const socket = io.sockets.sockets.get(user.socketId);
-        return socket && socket.connected;
-      });
-      
-      if (activeUsers.length !== users.length) {
-        roomUsers.set(roomId, activeUsers);
-        logWithTimestamp('debug', `Cleaned up inactive connections in room ${roomId}`, {
-          before: users.length,
-          after: activeUsers.length
-        });
-      }
-    }
-  }, 30000); // Every 30 seconds
-  
   io.on('connection', (socket) => {
     logWithTimestamp('info', `User connected: ${socket.id}`);
     
