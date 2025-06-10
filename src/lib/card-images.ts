@@ -8,8 +8,8 @@ export const CARD_IMAGES = {
   ESCAPE: '/images/cards/special/escape.png',
   
   // Sirènes (2 images différentes)
-  MERMAID_1: '/images/cards/mermaids/marmaid1.png',
-  MERMAID_2: '/images/cards/mermaids/marmaid2.png',
+  MERMAID_1: '/images/cards/mermaids/mermaid1.png',
+  MERMAID_2: '/images/cards/mermaids/mermaid2.png',
   
   // Pirates (5 images différentes)
   PIRATE_1: '/images/cards/pirates/pirate1.png',
