@@ -5,11 +5,10 @@ import { Player } from '@/types/skull-king';
 interface ScoreboardProps {
   players: Player[];
   winner: Player | null;
-  onNewGame?: () => void;
   onReturnToLobby?: () => void;
 }
 
-export default function Scoreboard({ players, winner, onNewGame, onReturnToLobby }: ScoreboardProps) {
+export default function Scoreboard({ players, winner, onReturnToLobby }: ScoreboardProps) {
   // Trier les joueurs par score décroissant
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
