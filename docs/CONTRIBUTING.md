@@ -75,7 +75,6 @@ git push origin feature/nom-de-votre-feature
 ### 🐛 Corrections de bugs
 - **Issues** étiquetées `bug`
 - **Reproduction** du problème
-- **Tests** pour éviter les régressions
 
 ### ✨ Nouvelles fonctionnalités
 - **Issues** étiquetées `enhancement`
@@ -214,46 +213,6 @@ if (error) {
 
 ---
 
-## 🧪 Tests et validation
-
-### Tests locaux
-
-```bash
-# Vérification TypeScript
-npm run type-check
-
-# Linting
-npm run lint
-npm run lint:fix
-
-# Tests de fonctionnement
-./sk status
-./sk api
-```
-
-### Tests manuels recommandés
-
-1. **Création/rejoindre** une salle
-2. **Jeu complet** avec plusieurs joueurs
-3. **Déconnexion/reconnexion** d'un joueur
-4. **Calcul des scores** avec bonus
-5. **Chat** en temps réel
-6. **Responsive design** sur mobile
-
-### Cas de test spécifiques
-
-#### Moteur de jeu
-- **Résolution des plis** selon toutes les règles
-- **Calcul des scores** avec tous les bonus possibles
-- **Validation des coups** joués
-
-#### Interface utilisateur
-- **États de chargement** et erreurs
-- **Animations** fluides
-- **Accessibilité** clavier et écran
-
----
-
 ## 🐛 Signalement de bugs
 
 ### Template d'issue
@@ -322,25 +281,6 @@ Y a-t-il d'autres façons de résoudre ce problème ?
 Tout autre contexte, captures d'écran, etc.
 ```
 
-### Roadmap et priorités
-
-Consultez les **milestones** et **projects** GitHub pour voir les priorités actuelles :
-
-#### Priorité haute
-- Bugs critiques affectant le gameplay
-- Problèmes de sécurité
-- Compatibilité navigateurs
-
-#### Priorité moyenne
-- Nouvelles fonctionnalités demandées
-- Améliorations UX/UI
-- Optimisations performances
-
-#### Priorité basse
-- Fonctionnalités "nice-to-have"
-- Refactoring technique
-- Documentation étendue
-
 ---
 
 ## 📋 Checklist de Pull Request
@@ -380,75 +320,13 @@ Avant de soumettre votre PR, vérifiez :
 
 Tous les contributeurs sont listés dans :
 - **README principal** avec liens GitHub
-- **Page About** de l'application
-- **Releases notes** pour les contributions majeures
 
 ### Types de contributions reconnues
 
 - 💻 **Code** - Développement de fonctionnalités et corrections
-- 🐛 **Tests** - Signalement et correction de bugs
 - 📖 **Documentation** - Amélioration des guides et tutoriels
 - 🎨 **Design** - Interface et expérience utilisateur
 - 💡 **Idées** - Propositions de fonctionnalités et améliorations
-- 🌍 **Traduction** - Localisation en différentes langues
-
----
-
-## 📞 Obtenir de l'aide
-
-### Canaux de communication
-
-- **GitHub Issues** : Questions techniques et bugs
-- **GitHub Discussions** : Discussions générales et idées
-- **Discord** : Chat en temps réel (lien dans le README)
-
-### Mentoring
-
-Si vous êtes nouveau/nouvelle dans le projet ou l'open source :
-- Cherchez les issues étiquetées `good first issue`
-- N'hésitez pas à **poser des questions**
-- Les mainteneurs sont là pour **vous aider**
-
----
-
-## 📜 Code de conduite
-
-### Nos engagements
-
-- **Respectueux** : Traiter tout le monde avec respect
-- **Inclusif** : Accueillir les contributions de tous
-- **Constructif** : Donner des feedbacks bienveillants
-- **Professionnel** : Maintenir un environnement de travail sain
-
-### Comportements inacceptables
-
-- Langage ou images inappropriés
-- Attaques personnelles ou politiques
-- Harcèlement public ou privé
-- Publication d'informations privées sans permission
-
-### Application
-
-Les violations peuvent être signalées en contactant l'équipe du projet. Toutes les plaintes seront examinées et donneront lieu à une réponse appropriée.
-
----
-
-## 🔄 Processus de release
-
-### Versioning
-
-Le projet suit le [Semantic Versioning](https://semver.org/) :
-- **MAJOR** : Changements incompatibles
-- **MINOR** : Nouvelles fonctionnalités compatibles
-- **PATCH** : Corrections de bugs
-
-### Cycle de release
-
-1. **Développement** sur branches feature
-2. **Merge** dans main après review
-3. **Testing** automatique et manuel
-4. **Release** avec notes de version
-5. **Déploiement** en production
 
 ---
 
