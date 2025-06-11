@@ -581,23 +581,22 @@ export function setupGameSocketHandlers(io) {
       
       try {
         let actionResult = null;
-        
-        if (type === 'START_GAME') {
-          actionResult = handleStartGame(gameState, player);
+          if (type === 'START_GAME') {
+          actionResult = handleStartGame(gameState, player, io, roomId);
         } else if (type === 'BID') {
           actionResult = handleBid(gameState, player, payload.bid);
         } else if (type === 'PLAY_CARD') {
           console.log(`🔍 DEBUG gameAction: payload =`, payload);
           actionResult = handlePlayCard(gameState, player, payload.cardId, payload.tigressChoice);
-        }
-        
-        // Check if action returned an error (for validation errors)
+        }        // Check if action returned an error (for validation errors)
         if (actionResult && actionResult.error) {
           console.log(`⚠️ Action ${type} validation error:`, actionResult.error);
-          socket.emit('game-error', { 
-            type: 'VALIDATION_ERROR',
+          
+          // Send toast notification only to the player who made the error
+          socket.emit('toast-notification', {
+            type: 'error',
             message: actionResult.error,
-            action: type
+            title: 'Erreur de jeu'
           });
           return;
         }
@@ -755,7 +754,30 @@ function sendSystemMessage(io, roomId, message, excludeUserId = null) {
   }
 }
 
-function handleStartGame(gameState, player) {
+// Function to send toast notifications to users
+function sendToastNotification(io, roomId, type, message, title, excludeUserId = null, duration = 5000) {
+  const toastData = {
+    type, // 'success', 'error', 'warning', 'info'
+    message,
+    title,
+    duration
+  };
+
+  if (excludeUserId) {
+    // Send to all sockets in room except the excluded user
+    const users = roomUsers.get(roomId) || [];
+    users.forEach(user => {
+      if (user.id !== excludeUserId) {
+        io.to(user.socketId).emit('toast-notification', toastData);
+      }
+    });
+  } else {
+    // Send to all users in room
+    io.to(roomId).emit('toast-notification', toastData);
+  }
+}
+
+function handleStartGame(gameState, player, io, roomId) {
   // Only the room creator can start the game
   if (player.id !== gameState.creatorId) {
     return { error: 'Seul le créateur de la room peut démarrer la partie' };
@@ -802,9 +824,14 @@ function handleStartGame(gameState, player) {
   
   // Deal cards for the first round
   dealCards(gameState);
-  
   console.log(`🚀 Game started in room ${gameState.roomId} by ${player.username}`);
   console.log(`📋 Round ${gameState.currentRound.number} started, each player gets ${gameState.currentRound.number} card(s)`);
+  
+  // Send toast notification to all players about game start
+  sendToastNotification(io, roomId, 'success', 
+    `La partie commence ! ${gameState.players.length} joueurs participent.`, 
+    '🎮 Partie lancée'
+  );
   
   return { success: true };
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { SkullKingGameState, GameAction, ChatMessage } from '@/types/skull-king';
+import { useToast } from '@/components/ToastProvider';
 
 interface UseGameSocketProps {
   roomId: string;
@@ -30,6 +31,8 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
   const [isMounted, setIsMounted] = useState(false);
   const joinAttemptRef = useRef(false);
   const currentRoomRef = useRef<string | null>(null);
+  const previousGamePhaseRef = useRef<string | null>(null);
+  const { showError, showInfo, showWarning, showSuccess } = useToast();
 
   // Ensure component is mounted on client side
   useEffect(() => {
@@ -91,22 +94,54 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
       setGameState(data.gameState);
     });    socketInstance.on('join-rejected', (data: { reason: string; message: string }) => {
       console.log('Join rejected:', data);
-      alert(data.message); // Show error to user
+      showError(data.message, 'Impossible de rejoindre la partie');
       // Optionally redirect back to lobby
-      window.location.href = '/';
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
     });
 
     socketInstance.on('room-deleted', (data: { message: string }) => {
       console.log('Room deleted:', data);
-      alert(data.message);
+      showWarning(data.message, 'Salle supprimée');
       // Redirect back to home
-      window.location.href = '/';
-    });
-
-    socketInstance.on('game-error', (data: { type: string; message: string; action: string }) => {
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+    });    socketInstance.on('game-error', (data: { type: string; message: string; action: string }) => {
       console.log('Game error received:', data);
       // Display error message to user
-      alert(`Erreur de jeu: ${data.message}`);
+      showError(data.message, 'Erreur de jeu');
+    });
+
+    socketInstance.on('player-joined', (data: { userId: string; username: string }) => {
+      console.log('Player joined:', data);
+      // Show notification when another player joins
+      showInfo(`${data.username} a rejoint la partie`, 'Nouveau joueur');
+    });    socketInstance.on('player-left', (data: { userId: string; username: string }) => {
+      console.log('Player left:', data);
+      // Show notification when a player leaves
+      showWarning(`${data.username} a quitté la partie`, 'Joueur parti');
+    });
+
+    socketInstance.on('toast-notification', (data: { type: string; message: string; title?: string; duration?: number }) => {
+      console.log('Toast notification received:', data);
+      // Show toast notification from server
+      switch (data.type) {
+        case 'success':
+          showSuccess(data.message, data.title, data.duration);
+          break;
+        case 'error':
+          showError(data.message, data.title, data.duration);
+          break;
+        case 'warning':
+          showWarning(data.message, data.title, data.duration);
+          break;
+        case 'info':
+        default:
+          showInfo(data.message, data.title, data.duration);
+          break;
+      }
     });
 
     socketInstance.on('trick-completed', (data: { winner: { playerId: string; playerName: string }; completedTrick: unknown }) => {
@@ -196,6 +231,45 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
       setHasJoined(false);
     }
   }, [socket, connected, roomId, userId]);
+
+  // Detect game phase changes and show notifications
+  useEffect(() => {
+    if (!gameState || !isMounted) return;
+    
+    const currentPhase = gameState.gamePhase;
+    const previousPhase = previousGamePhaseRef.current;
+    
+    // Update the ref for next time
+    previousGamePhaseRef.current = currentPhase;
+    
+    // Don't show notification on first load
+    if (previousPhase === null) return;
+    
+    // Show notifications for phase changes
+    if (previousPhase !== currentPhase) {
+      switch (currentPhase) {
+        case 'BIDDING':
+          showInfo(`Round ${gameState.currentRound?.number || 1} - Phase de paris`, 'Nouvelle manche');
+          break;
+        case 'PLAYING':
+          showSuccess('Phase de jeu commencée !', 'À vos cartes');
+          break;
+        case 'ROUND_END':
+          showInfo('Fin de manche - Calcul des scores...', 'Scores');
+          break;
+        case 'GAME_END':
+          const winner = gameState.players.reduce((prev, current) => 
+            (current.score > prev.score) ? current : prev
+          );
+          if (winner.id === userId) {
+            showSuccess('🎉 Félicitations ! Vous avez gagné !', 'Victoire !', 8000);
+          } else {
+            showInfo(`🏆 ${winner.username} a remporté la partie !`, 'Partie terminée', 6000);
+          }
+          break;
+      }
+    }
+  }, [gameState?.gamePhase, gameState?.currentRound?.number, gameState?.players, userId, isMounted, showInfo, showSuccess]);
 
   return {
     socket,

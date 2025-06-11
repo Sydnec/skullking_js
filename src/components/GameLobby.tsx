@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { RoomService, Room, User } from "@/lib/api";
+import { useToast } from "./ToastProvider";
 import { io } from "socket.io-client";
 
 interface GameLobbyProps {
@@ -17,6 +18,7 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(true);
   const [error, setError] = useState("");
+  const { showSuccess, showError, showInfo } = useToast();
   // Removed unused socket state
   const router = useRouter();
   const isMountedRef = useRef(true); // Load rooms on component mount and set up auto-refresh
@@ -92,40 +94,47 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
         setIsLoadingRooms(false);
       }
     }
-  };
-  const handleCreateGame = async () => {
+  };  const handleCreateGame = async () => {
     setIsCreatingGame(true);
     try {
+      // Show info notification
+      showInfo('Création de la partie en cours...', 'Nouvelle partie');
+      
       // Ensure user session is saved before navigation
       localStorage.setItem("lastUsername", user.username);
       localStorage.setItem("lastUserId", user.id);
 
       const response = await RoomService.createRoom(user.id);
 
+      // Show success notification
+      showSuccess(`Partie créée avec succès ! Code: ${response.room.id}`, 'Partie créée');
+
       // Navigate to the room page
       router.push(`/${response.room.id}`);
     } catch (error) {
-      setError("Erreur lors de la création de la partie");
+      showError("Erreur lors de la création de la partie", "Erreur");
       console.error("Error creating room:", error);
     } finally {
       setIsCreatingGame(false);
     }
-  };
-  const handleJoinGame = async () => {
+  };  const handleJoinGame = async () => {
     if (!gameCode.trim() || gameCode.length !== 6) {
-      setError("Veuillez entrer un code de partie valide (6 caractères)");
+      showError("Veuillez entrer un code de partie valide (6 caractères)", "Code invalide");
       return;
     }
 
     // Check if user is already in this room
     const existingRoom = rooms.find((r) => r.id === gameCode);
     if (existingRoom && existingRoom.players.includes(user.username)) {
-      setError("Vous êtes déjà dans cette partie");
+      showError("Vous êtes déjà dans cette partie", "Déjà connecté");
       return;
     }
     setIsJoiningGame(true);
     try {
       console.log("Joining room for user:", user);
+
+      // Show info notification
+      showInfo(`Connexion à la partie ${gameCode}...`, 'Connexion en cours');
 
       // Ensure user session is saved before navigation
       localStorage.setItem("lastUsername", user.username);
@@ -133,34 +142,42 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
 
       const response = await RoomService.joinRoom(gameCode, user.id);
 
+      // Show success notification
+      showSuccess(`Connexion réussie à la partie !`, 'Connecté');
+
       // Navigate to the room page
       router.push(`/${response.room.id}`);
       setGameCode("");
     } catch (error) {
-      setError("Erreur lors de la connexion à la partie");
+      showError("Erreur lors de la connexion à la partie", "Connexion échouée");
       console.error("Error joining room:", error);
     } finally {
       setIsJoiningGame(false);
     }
-  };
-  const handleJoinRoom = async (roomCode: string) => {
+  };  const handleJoinRoom = async (roomCode: string) => {
     // Check if user is already in this room
     const room = rooms.find((r) => r.id === roomCode);
     if (room && room.players.includes(user.username)) {
-      setError("Vous êtes déjà dans cette partie");
+      showError("Vous êtes déjà dans cette partie", "Déjà connecté");
       return;
     }
     try {
+      // Show info notification
+      showInfo(`Connexion à la partie ${roomCode}...`, 'Connexion en cours');
+      
       // Ensure user session is saved before navigation
       localStorage.setItem("lastUsername", user.username);
       localStorage.setItem("lastUserId", user.id);
 
       const response = await RoomService.joinRoom(roomCode, user.id);
 
+      // Show success notification
+      showSuccess(`Connexion réussie à la partie !`, 'Connecté');
+
       // Navigate to the room page
       router.push(`/${response.room.id}`);
     } catch (error) {
-      setError("Erreur lors de la connexion à la partie");
+      showError("Erreur lors de la connexion à la partie", "Connexion échouée");
       console.error("Error joining room:", error);
     }
   };

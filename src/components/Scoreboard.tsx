@@ -46,13 +46,13 @@ export default function Scoreboard({ players, winner, onNewGame, onReturnToLobby
         {/* Tableau des scores */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4">
-            <h3 className="text-l font-bold text-white text-center">
-              📊 Tableau Final des Scores
+            <h3 className="text-xl font-bold text-white text-center">
+              Tableau des Scores
             </h3>
           </div>
 
           <div className="p-4 sm:p-6">
-            <div className="space-y-3 p-3">
+            <div className="space-y-3 p-4">
               {sortedPlayers.map((player, index) => {
                 const rank = index + 1;
                 const isWinner = player.id === winner?.id;
@@ -60,8 +60,8 @@ export default function Scoreboard({ players, winner, onNewGame, onReturnToLobby
                 return (
                   <div
                     key={player.id}
-                    className={`rounded-lg p-3 sm:p-4 transition-all duration-500 transform hover:scale-105 ${getRankStyle(rank)} ${
-                      isWinner ? 'ring-4 ring-yellow-400 ring-opacity-50 scale-100 animate-pulse' : ''
+                    className={`rounded-lg p-3 sm:p-4 transition-all duration-500 transform hover:scale-102 ${getRankStyle(rank)} ${
+                      isWinner ? 'ring-4 ring-yellow-400 ring-opacity-50 scale-105 animate-pulse' : ''
                     }`}
                     style={{ animationDelay: `${index * 100}ms` }}
                   >

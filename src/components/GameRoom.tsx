@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { User } from '@/lib/api';
 import { Player, Card } from '@/types/skull-king';
 import { useGameSocket } from '@/hooks/useGameSocket';
+import { useToast } from './ToastProvider';
 import ConfirmDialog from './ConfirmDialog';
 import CardImage from './CardImage';
 import Scoreboard from './Scoreboard';
@@ -21,7 +22,10 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
   const [trickWinner, setTrickWinner] = useState<{ playerName: string; playerId: string } | null>(null);
   const [showTigressChoice, setShowTigressChoice] = useState<boolean>(false);
   const [pendingTigressCard, setPendingTigressCard] = useState<Card | null>(null);
-  const leaveGameRef = useRef<(() => void) | null>(null);  const { 
+  const leaveGameRef = useRef<(() => void) | null>(null);
+  const { showSuccess, showError, showInfo } = useToast();
+
+  const { 
     gameState, 
     connected, 
     hasJoined,
@@ -66,9 +70,11 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
     return () => {
       window.removeEventListener('trickCompleted', handleTrickCompleted);
     };
-  }, []);
-  const handleStartGame = () => {
+  }, []);  const handleStartGame = () => {
     if (!gameState || !currentPlayer) return;
+    
+    // Show info notification
+    showInfo('Démarrage de la partie...', 'Lancement en cours');
     
     // Send start game action through socket
     sendGameAction({
@@ -116,7 +122,6 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
       default: return phase;
     }
   };
-
   const handleBid = () => {
     if (!gameState || !currentRound || !currentPlayer) return;
     
@@ -125,6 +130,12 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
       type: 'BID',
       payload: { bid: bidAmount }
     });
+    
+    // Show success notification
+    showSuccess(
+      `Votre pari de ${bidAmount} pli${bidAmount > 1 ? 's' : ''} a été placé !`,
+      'Pari confirmé'
+    );
   };
 
   const handlePlayCard = (card: Card) => {
