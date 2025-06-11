@@ -138,7 +138,6 @@ Les contributions sont les bienvenues ! N'hésitez pas à :
 - [ ] Amélioration de l'UI/UX
 - [ ] Ajout d'animations pour les cartes
 - [ ] Mode spectateur
-- [ ] Chat intégré
 
 ## 📄 Licence
 
