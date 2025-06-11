@@ -206,7 +206,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
             {connected && (
               <div className={`text-sm flex items-center justify-center gap-2 ${hasJoined ? 'text-green-600' : 'text-yellow-600'}`}>
                 {hasJoined ? '🎮' : '⏳'} 
-                {hasJoined ? `Dans la salle ${roomId}` : `Connexion à la salle ${roomId}...`}
+                {hasJoined ? `Dans la room ${roomId}` : `Connexion à la room ${roomId}...`}
               </div>
             )}
             
@@ -257,8 +257,8 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="h-screen bg-gray-100 dark:bg-gray-900 p-3 flex flex-col">
+      <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
         {/* Trick Winner Notification */}
         {trickWinner && (
           <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg animate-pulse">
@@ -272,9 +272,9 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
         )}
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 flex-shrink-0">
           <div>            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Skull King - Salle {roomId}
+              Skull King - room {roomId}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {gameState.roomStatus === 'LOBBY' ? (
@@ -292,7 +292,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                 onClick={handleDeleteRoom}
                 className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
               >
-                🗑️ Supprimer la salle
+                🗑️ Supprimer la room
               </button>
             ) : (
               <button
@@ -305,16 +305,16 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
           </div>
         </div>
 
-        {/* Game Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
-          {/* Players */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-            <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">Joueurs</h2>
-            <div className="space-y-1.5">
+        {/* Main Game Area - Full height layout (without player hand) */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 min-h-0">
+          {/* Players - Fixed height */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 h-full flex flex-col">
+            <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white flex-shrink-0">Joueurs</h2>
+            <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0">
               {gameState.players.map((player: Player) => (
                 <div
                   key={player.id}
-                  className={`p-2 rounded-md ${
+                  className={`p-2 rounded-md flex-shrink-0 ${
                     player.id === user.id ? 'bg-blue-100 dark:bg-blue-900' : 'bg-gray-50 dark:bg-gray-700'
                   }`}
                 >                  <div className="flex justify-between items-center">
@@ -347,9 +347,9 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                 </div>
               ))}
             </div>
-          </div>          {/* Game Center - Context-aware section */}
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg p-3">
-            <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">
+          </div>          {/* Game Center - Context-aware section - Fixed height */}
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg p-4 h-full flex flex-col">
+            <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white flex-shrink-0">
               {gameState.roomStatus === 'LOBBY' 
                 ? 'Information du Lobby'
                 : gameState.gamePhase === 'PLAYING' 
@@ -358,11 +358,13 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
               }
             </h2>
             
+            <div className="flex-1 overflow-y-auto min-h-0">
+            
             {/* Lobby Info */}
             {gameState.roomStatus === 'LOBBY' && (
               <div className="space-y-2">
                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">Code de la salle :</span> {roomId}
+                  <span className="font-medium">Code de la room :</span> {roomId}
                 </div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">
                   <span className="font-medium">Créateur :</span> {gameState.players.find(p => p.id === gameState.creatorId)?.username}
@@ -563,21 +565,21 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
               </div>
             </div>
           )}
-        </div>
+            </div>
+          </div>
         </div>
 
-        {/* Player Hand */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-          <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">Votre Main</h2>
-                    
+        {/* Player Hand - Full width at bottom */}
+        <div className="mt-3 bg-white dark:bg-gray-800 rounded-lg p-3 flex-shrink-0">
           <div className="flex flex-wrap gap-2 justify-center">
             {(currentPlayer?.cards || []).map((card: Card) => getCardDisplay(card))}
           </div>
           {(currentPlayer?.cards?.length || 0) === 0 && (
-            <div className="text-center text-gray-500 dark:text-gray-400 py-6 text-sm">
+            <div className="text-center text-gray-500 dark:text-gray-400 py-4 text-sm">
               Aucune carte en main
             </div>
-          )}        </div>
+          )}
+        </div>
       </div>
 
       {/* Confirmation Dialog for Room Deletion */}

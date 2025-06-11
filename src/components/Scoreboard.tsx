@@ -33,7 +33,7 @@ export default function Scoreboard({ players, winner, onNewGame, onReturnToLobby
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900 p-4 flex items-center justify-center">
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-full px-4">
         {/* En-tête avec le gagnant */}
         <div className="text-center mb-8">
           <div className="mb-6">

@@ -113,7 +113,7 @@ export default function CardImage({ card, className = '', onClick, isPlayable = 
             <div className="absolute top-0 left-0">
               <span className="text-lg px-1 py-0.5 filter">
                 {card.type === 'SKULL_KING' && '💀'}
-                {card.type === 'PIRATE' && '⚔️'}
+                {card.type === 'PIRATE' && '🏴‍☠️'}
                 {card.type === 'MERMAID' && '🧜‍♀️'}
                 {card.type === 'TIGRESS' && '🐯'}
                 {card.type === 'ESCAPE' && '🏃'}
@@ -124,7 +124,7 @@ export default function CardImage({ card, className = '', onClick, isPlayable = 
             <div className="absolute bottom-0 right-0 transform rotate-180">
               <span className="text-lg px-1 py-0.5 filter">
                 {card.type === 'SKULL_KING' && '💀'}
-                {card.type === 'PIRATE' && '⚔️'}
+                {card.type === 'PIRATE' && '🏴‍☠️'}
                 {card.type === 'MERMAID' && '🧜‍♀️'}
                 {card.type === 'TIGRESS' && '🐯'}
                 {card.type === 'ESCAPE' && '🏃'}
