@@ -67,9 +67,6 @@ export function initializeSocketServer(server: HttpServer) {
       // Add user to room tracking
       addUserToRoom(roomId, { id: userId, username, roomId });
 
-      // Send system message about player joining
-      sendSystemMessage(io, roomId, `${username} a rejoint la room`);
-
       // Get room users and game state
       const users = roomUsers.get(roomId) || [];
       let gameState = activeGames.get(roomId);
@@ -168,8 +165,7 @@ export function initializeSocketServer(server: HttpServer) {
         socket.leave(roomId);
         removeUserFromRoom(roomId, userId);
         
-        // Send system message about player leaving
-        sendSystemMessage(io, roomId, `${username} a quitté la room`);
+        // Note: Removed system message for player leaving to reduce chat noise
         
         const users = roomUsers.get(roomId) || [];
         io.to(roomId).emit('room_state', {
@@ -188,10 +184,7 @@ export function initializeSocketServer(server: HttpServer) {
       const user = socket.data.user;
       if (user?.roomId && user?.username) {
         removeUserFromRoom(user.roomId, user.id);
-        
-        // Send system message about player disconnecting
-        sendSystemMessage(io, user.roomId, `${user.username} s'est déconnecté`);
-        
+                
         const users = roomUsers.get(user.roomId) || [];
         io.to(user.roomId).emit('room_state', {
           users,
@@ -246,26 +239,6 @@ function removeUserFromRoom(roomId: string, userId: string) {
   const users = roomUsers.get(roomId) || [];
   const filteredUsers = users.filter(u => u.id !== userId);
   roomUsers.set(roomId, filteredUsers);
-}
-
-function sendSystemMessage(io: SocketIOServer, roomId: string, message: string) {
-  const chatMessage: ChatMessage = {
-    id: `system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    userId: 'system',
-    username: 'Système',
-    roomId,
-    message,
-    timestamp: new Date(),
-    type: 'SYSTEM'
-  };
-
-  // Save message to room's chat history
-  const messages = roomChatMessages.get(roomId) || [];
-  messages.push(chatMessage);
-  roomChatMessages.set(roomId, messages);
-
-  // Emit message to all users in room
-  io.to(roomId).emit('chat-message', chatMessage);
 }
 
 function processGameAction(gameState: SkullKingGameState, action: GameAction): SkullKingGameState {

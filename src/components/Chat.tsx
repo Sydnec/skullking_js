@@ -38,11 +38,19 @@ export default function Chat({ user, onSendMessage, messages }: ChatProps) {
     }
   };
 
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+  const formatTime = (date: Date | string) => {
+    try {
+      const dateObj = date instanceof Date ? date : new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        return '--:--';
+      }
+      return new Intl.DateTimeFormat('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(dateObj);
+    } catch {
+      return '--:--';
+    }
   };
 
   return (
@@ -51,34 +59,39 @@ export default function Chat({ user, onSendMessage, messages }: ChatProps) {
       <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white flex-shrink-0">Chat</h2>
       
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto mb-3 space-y-2 min-h-0 bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+      <div className="flex-1 overflow-y-auto mb-3 space-y-1 min-h-0 bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
         {messages.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center text-sm">Aucun message pour le moment...</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center text-xs">Aucun message pour le moment...</p>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className={`${msg.type === 'SYSTEM' ? 'text-center' : ''}`}>
               {msg.type === 'SYSTEM' ? (
-                <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                <div className="text-xs text-gray-500 dark:text-gray-400 italic py-0.5">
                   {msg.message}
                 </div>
               ) : (
                 <div className={`${msg.userId === user.id ? 'text-right' : 'text-left'}`}>
-                  <div className={`inline-block max-w-[80%] px-3 py-2 rounded-lg text-sm ${
+                  <div className={`inline-block max-w-[85%] px-2 py-1 rounded-md text-xs ${
                     msg.userId === user.id 
                       ? 'bg-blue-500 text-white' 
                       : 'bg-white dark:bg-gray-600 border dark:border-gray-500 text-gray-900 dark:text-white'
                   }`}>
                     {msg.userId !== user.id && (
-                      <div className="font-semibold text-xs mb-1 text-gray-600 dark:text-gray-300">
-                        {msg.username}
+                      <div className="flex justify-between items-center text-xs mb-0.5">
+                        <span className="font-medium text-gray-600 dark:text-gray-300 text-xs">
+                          {msg.username}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
+                          {formatTime(msg.timestamp)}
+                        </span>
                       </div>
                     )}
-                    <div>{msg.message}</div>
-                    <div className={`text-xs mt-1 ${
-                      msg.userId === user.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                    }`}>
-                      {formatTime(msg.timestamp)}
-                    </div>
+                    <div className="text-xs leading-tight">{msg.message}</div>
+                    {msg.userId === user.id && (
+                      <div className="text-xs text-blue-100 text-right mt-0.5 opacity-75">
+                        {formatTime(msg.timestamp)}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -102,9 +115,9 @@ export default function Chat({ user, onSendMessage, messages }: ChatProps) {
           <button
             type="submit"
             disabled={!message.trim()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 transition-colors"
+            className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 transition-colors"
           >
-            Envoyer
+            📤
           </button>
         </div>
       </form>

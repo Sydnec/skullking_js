@@ -444,9 +444,6 @@ export function setupGameSocketHandlers(io) {
       // Notify all players in room about the updated state
       io.to(roomId).emit('game-updated', gameState);
       io.to(roomId).emit('player-joined', { userId, username });
-
-      // Send system message about player joining (except to the player themselves)
-      sendSystemMessage(io, roomId, `${username} a rejoint la partie`, userId);
     });    socket.on('leave-game', (data) => {
       const { roomId, userId } = data;
       console.log(`User ${userId} leaving room ${roomId}`);
@@ -793,38 +790,6 @@ export function setupGameSocketHandlers(io) {
       }
     });
   });
-}
-
-// Function to send system messages to chat
-function sendSystemMessage(io, roomId, message, excludeUserId = null) {
-  const chatMessage = {
-    id: `system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    userId: 'system',
-    username: 'Système',
-    roomId,
-    message,
-    timestamp: new Date(),
-    type: 'SYSTEM'
-  };
-
-  // Save message to room's chat history
-  const messages = roomChatMessages.get(roomId) || [];
-  messages.push(chatMessage);
-  roomChatMessages.set(roomId, messages);
-
-  // Emit message to all users in room except excluded user
-  if (excludeUserId) {
-    // Send to all sockets in room except the excluded user
-    const users = roomUsers.get(roomId) || [];
-    users.forEach(user => {
-      if (user.id !== excludeUserId) {
-        io.to(user.socketId).emit('chat-message', chatMessage);
-      }
-    });
-  } else {
-    // Send to all users in room
-    io.to(roomId).emit('chat-message', chatMessage);
-  }
 }
 
 // Function to send toast notifications to users
