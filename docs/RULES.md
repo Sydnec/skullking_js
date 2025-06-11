@@ -14,12 +14,46 @@ Marquer le plus de points en prédisant exactement le nombre de plis que vous al
 - **1 à 14** dans **4 couleurs** : Noir, Vert, Violet, Jaune
 - Les cartes noires ont une valeur spéciale (voir hiérarchie)
 
+**Exemples de cartes numériques par couleur :**
+
+<img src="../public/images/cards/suits/black.png" width="60" alt="Carte Noire"> <img src="../public/images/cards/suits/green.png" width="60" alt="Carte Verte"> <img src="../public/images/cards/suits/purple.png" width="60" alt="Carte Violette"> <img src="../public/images/cards/suits/yellow.png" width="60" alt="Carte Jaune">
+
+*De gauche à droite : Noir, Vert, Violet, Jaune*
+
 ### Cartes spéciales (14 cartes)
 - 👑 **Skull King** (1 carte) - La carte la plus puissante
 - 🏴‍☠️ **Pirates** (5 cartes) - Battent toutes les cartes colorées et les sirènes
 - 🧜‍♀️ **Sirènes** (2 cartes) - Capturent le Skull King et battent les cartes colorées
 - 🐯 **Tigresse** (1 carte) - Agis comme une fuite ou comme un pirate, au choix
 - 🏃‍♂️ **Fuites** (5 cartes) - Ne peuvent remporter aucun pli
+
+**Visuels des cartes spéciales :**
+
+**Skull King :**
+
+<img src="../public/images/cards/special/skullking.png" width="80" alt="Skull King">
+
+**Pirates (5 cartes différentes) :**
+
+<img src="../public/images/cards/pirates/pirate1.png" width="60" alt="Pirate 1"> <img src="../public/images/cards/pirates/pirate2.png" width="60" alt="Pirate 2"> <img src="../public/images/cards/pirates/pirate3.png" width="60" alt="Pirate 3"> <img src="../public/images/cards/pirates/pirate4.png" width="60" alt="Pirate 4"> <img src="../public/images/cards/pirates/pirate5.png" width="60" alt="Pirate 5">
+
+**Sirènes (2 cartes différentes) :**
+
+<img src="../public/images/cards/mermaids/mermaid1.png" width="60" alt="Sirène 1"> <img src="../public/images/cards/mermaids/mermaid2.png" width="60" alt="Sirène 2">
+
+**Tigresse (polyvalente) :**
+
+<img src="../public/images/cards/special/tigress.png" width="60" alt="Tigresse"> 
+
+*La Tigresse peut être jouée soit comme un pirate, soit comme une fuite*
+
+<img src="../public/images/cards/special/tigress-pirate.png" width="60" alt="Tigresse-Pirate"> <img src="../public/images/cards/special/tigress-escape.png" width="60" alt="Tigresse-Fuite">
+
+**Fuites (5 cartes) :**
+
+<img src="../public/images/cards/special/escape.png" width="60" alt="Fuite">
+
+*Les 5 cartes de fuite ont le même visuel*
 
 ---
 
@@ -114,12 +148,26 @@ Calcul des scores selon les règles de points (voir section suivante).
 - **14 de couleur** (Vert, Violet, Jaune) : **+10 points** par carte
 - **14 noir** (Drapeau pirate) : **+20 points**
 
+*Exemples de cartes 14 qui donnent des bonus :*
+
+<img src="../public/images/cards/suits/green.png" width="50" alt="Carte 14 couleur"> <img src="../public/images/cards/suits/purple.png" width="50" alt="Carte 14 couleur"> <img src="../public/images/cards/suits/yellow.png" width="50" alt="Carte 14 couleur"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <img src="../public/images/cards/suits/black.png" width="50" alt="Carte 14 noir">
+
+*(+10 pts chacune)* &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *(+20 pts)*
+
 ### Bonus pour les captures de cartes spéciales
 
 **Captures réalisées dans vos plis gagnés :**
 - **🧜‍♀️ Sirène capturée par un Pirate** : **+20 points** par sirène
 - **🏴‍☠️ Pirate capturé par Skull King** : **+30 points** par pirate
 - **👑 Skull King capturé par une Sirène** : **+40 points**
+
+**Exemples de captures qui donnent des bonus :**
+
+<img src="../public/images/cards/pirates/pirate1.png" width="40" alt="Pirate"> capture <img src="../public/images/cards/mermaids/mermaid1.png" width="40" alt="Sirène"> = **+20 points**
+
+<img src="../public/images/cards/special/skullking.png" width="40" alt="Skull King"> capture <img src="../public/images/cards/pirates/pirate2.png" width="40" alt="Pirate"> = **+30 points**
+
+<img src="../public/images/cards/mermaids/mermaid2.png" width="40" alt="Sirène"> capture <img src="../public/images/cards/special/skullking.png" width="40" alt="Skull King"> = **+40 points**
 
 ### Règles des captures
 

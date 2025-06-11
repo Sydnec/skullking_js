@@ -1,5 +1,4 @@
 import { PrismaClient } from './src/generated/prisma/index.js';
-import { SkullKingEngine } from './src/lib/skull-king-engine.ts';
 
 // Initialize Prisma client with error handling
 const prisma = new PrismaClient({
@@ -1241,16 +1240,83 @@ function resolveTrick(gameState) {
   return trickWinnerInfo;
 }
 
+// Enhanced round scoring with bonus logic and per-round calculation
 function calculateRoundScores(gameState) {
-  // Use the centralized TypeScript engine for scoring
-  // Convert players to TypeScript format and calculate scores
-  const updatedPlayers = SkullKingEngine.calculateRoundScores(gameState.players);
-  
-  // Update the game state with new scores
-  gameState.players = updatedPlayers;
-  
-  console.log('📊 Round scores calculated using centralized engine');
-  gameState.players.forEach(player => {
-    console.log(`  ${player.username}: ${player.score} points (bid: ${player.bid}, won: ${player.tricksWon})`);
+  const SCORING = {
+    ZERO_BID_POINTS: 10,
+    TRICK_POINTS: 20,
+    FAIL_PENALTY: -10
+  };
+
+  // Bonus points calculation (stub, expand as needed)
+  function calculateBonusPoints(player) {
+    let bonusPoints = 0;
+
+    // Bonus for 14s
+    if (player.capturedCards && Array.isArray(player.capturedCards)) {
+      for (const card of player.capturedCards) {
+        if (card.type === 'NUMBER' && card.value === 14) {
+          if (card.suit === 'BLACK') {
+            bonusPoints += 20; // 20 points for black 14
+          } else if (card.suit && ['GREEN', 'PURPLE', 'YELLOW'].includes(card.suit)) {
+            bonusPoints += 10; // 10 points for colored 14
+          }
+        }
+      }
+    }
+
+    // Bonus for capture events
+    if (player.captureEvents && Array.isArray(player.captureEvents)) {
+      for (const event of player.captureEvents) {
+        if (event.winnerId === player.id) {
+          bonusPoints += getCaptureBonus(event.capturerType, event.capturedType);
+        }
+      }
+    }
+
+    return bonusPoints;
+  }
+
+  // Helper for capture event bonus
+  function getCaptureBonus(capturerType, capturedType) {
+    if (capturerType === 'MERMAID' && capturedType === 'SKULL_KING') return 40;
+    if (capturerType === 'SKULL_KING' && capturedType === 'PIRATE') return 30;
+    if (capturerType === 'PIRATE' && capturedType === 'MERMAID') return 20;
+    return 0;
+  }
+
+  const roundNumber = gameState.currentRound.number;
+
+  gameState.players = gameState.players.map(player => {
+    const bid = player.bid || 0;
+    const tricks = player.tricksWon;
+    let roundScore = 0;
+
+    if (bid === 0) {
+      // Bid 0: 10 points per round number if successful, penalty if failed
+      if (tricks === 0) {
+        roundScore = SCORING.ZERO_BID_POINTS * roundNumber;
+      } else {
+        roundScore = SCORING.FAIL_PENALTY * roundNumber;
+      }
+    } else {
+      // Normal bid: 20 points per trick if exact, penalty if failed
+      if (tricks === bid) {
+        roundScore = SCORING.TRICK_POINTS * bid;
+        roundScore += calculateBonusPoints(player);
+      } else {
+        roundScore = SCORING.FAIL_PENALTY * Math.abs(tricks - bid);
+      }
+    }
+
+    return {
+      ...player,
+      score: (player.score || 0) + roundScore,
+      bid: null, // Reset for next round
+      tricksWon: 0,
+      isReady: false,
+      captureEvents: [], // Reset for next round
+      capturedCards: [] // Reset captured cards for next round
+    };
   });
 }

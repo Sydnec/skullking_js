@@ -120,7 +120,7 @@ export class SkullKingEngine {
     if (skullKingCard && mermaidCards.length === 0) {
       winnerId = skullKingCard.playerId;
       
-      for (const pirate of pirateCards) {
+      for (let i = 0; i < pirateCards.length; i++) {
         captureEvents.push({
           capturerType: 'SKULL_KING',
           capturedType: 'PIRATE',
@@ -144,8 +144,8 @@ export class SkullKingEngine {
         // Mermaid loses to pirates/tigress acting as pirate
         winnerId = pirateCards[0].playerId;
         // Pirates captured mermaids
-        for (const mermaid of mermaidCards) {
-          captureEvents.push({
+        for (let i = 0; i < mermaidCards.length; i++) {
+            captureEvents.push({
             capturerType: 'PIRATE',
             capturedType: 'MERMAID',
             winnerId: pirateCards[0].playerId
@@ -186,37 +186,6 @@ export class SkullKingEngine {
     }
     
     return { winnerId, captureEvents };
-  }
-
-  /**
-   * Calculate score for a player in a round
-   */
-  static calculateRoundScore(player: Player, roundNumber: number): number {
-    const bid = player.bid || 0;
-    const tricksWon = player.tricksWon;
-    
-    if (bid === 0) {
-      // Zero bid: 10 points per round if successful
-      if (tricksWon === 0) {
-        return SCORING.ZERO_BID_POINTS * roundNumber;
-      } else {
-        return SCORING.FAIL_PENALTY * tricksWon;
-      }
-    } else {
-      // Regular bid
-      if (tricksWon === bid) {
-        // Made exact bid: 20 per trick + bonus points
-        let score = tricksWon * SCORING.TRICK_POINTS;
-        
-        // Add bonus points (only if bid is successful)
-        score += this.calculateBonusPoints(player);
-        
-        return score;
-      } else {
-        // Failed bid: -10 per trick difference (no bonus points)
-        return SCORING.FAIL_PENALTY * Math.abs(tricksWon - bid);
-      }
-    }
   }
 
   /**
@@ -476,7 +445,7 @@ export class SkullKingEngine {
       const roundComplete = playersWithTricks.every(p => p.cards.length === 0);
       if (roundComplete) {
         // Calculate scores and move to next round
-        const playersWithScores = this.calculateRoundScores(playersWithTricks);
+        const playersWithScores = this.calculateRoundScores(playersWithTricks, updatedRound.number);
         const nextRoundNumber = updatedRound.number + 1;
         
         if (nextRoundNumber > gameState.maxRounds) {
@@ -522,18 +491,18 @@ export class SkullKingEngine {
   /**
    * Calculate scores for a completed round
    */
-  static calculateRoundScores(players: Player[]): Player[] {
+  static calculateRoundScores(players: Player[], roundNumber: number): Player[] {
     return players.map(player => {
       const bid = player.bid || 0;
       const tricks = player.tricksWon;
       let roundScore = 0;
 
       if (bid === 0) {
-        // Bid 0: 10 points per player + 10 if successful
+        // Bid 0: 10 points per round number
         if (tricks === 0) {
-          roundScore = 10 * players.length + 10;
+          roundScore = SCORING.ZERO_BID_POINTS * roundNumber;
         } else {
-          roundScore = -10 * tricks;
+          roundScore = SCORING.FAIL_PENALTY * roundNumber; 
         }
       } else {
         // Normal bid: 20 points per trick if exact, -10 per difference

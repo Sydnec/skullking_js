@@ -152,7 +152,7 @@ update_function() {
 
     # Installation des dépendances
     print_step "Installation des dépendances..."
-    npm ci --production
+    npm i
 
     # Build de l'application
     print_step "Construction de l'application..."
@@ -168,7 +168,7 @@ update_function() {
 
     # Redémarrage
     print_step "Redémarrage de l'application..."
-    pm2 restart skullking || pm2 start ecosystem.config.js --env production
+    pm2 restart skullking || pm2 start ecosystem.config.cjs --env production
     pm2 save
 
     # Vérification finale
@@ -186,7 +186,7 @@ case "$1" in
     start)
         echo "🚀 Démarrage de Skull King..."
         cd "$PROJECT_DIR"
-        pm2 start ecosystem.config.js --env production 2>/dev/null || {
+        pm2 start ecosystem.config.cjs --env production 2>/dev/null || {
             print_warning "Processus déjà en cours, tentative de redémarrage..."
             pm2 restart skullking
         }
@@ -208,7 +208,7 @@ case "$1" in
         cd "$PROJECT_DIR"
         pm2 restart skullking 2>/dev/null || {
             print_warning "Processus non trouvé, démarrage..."
-            pm2 start ecosystem.config.js --env production
+            pm2 start ecosystem.config.cjs --env production
         }
         pm2 save
         sleep 2
@@ -260,7 +260,7 @@ case "$1" in
 
         # Installation des dépendances
         print_step "Installation des dépendances..."
-        npm ci --production
+        npm i
 
         # Génération du client Prisma
         print_step "Génération du client Prisma..."
@@ -276,7 +276,7 @@ case "$1" in
 
         # Démarrage avec PM2
         print_step "Démarrage avec PM2..."
-        pm2 start ecosystem.config.js --env production
+        pm2 start ecosystem.config.cjs --env production
 
         # Sauvegarde de la configuration PM2
         print_step "Sauvegarde de la configuration PM2..."
@@ -328,6 +328,20 @@ case "$1" in
                 exit 1
             }
 
+            # Suppression des logs
+            print_step "Suppression des logs..."
+            if [ -d "$LOG_DIR" ]; then
+                rm -rf "$LOG_DIR"
+                mkdir -p "$LOG_DIR"
+                touch "$LOG_DIR/combined.log"
+                touch "$LOG_DIR/error.log"
+                touch "$LOG_DIR/out.log"
+                print_success "Logs supprimés et répertoire recréé"
+            else
+                print_warning "Répertoire de logs non trouvé, création d'un nouveau"
+                mkdir -p "$LOG_DIR"
+            fi
+
             # Exécution du script de reset
             print_step "Exécution du script de réinitialisation..."
             node reset-project.js
@@ -342,7 +356,7 @@ case "$1" in
             else
                 print_error "Erreur lors de la réinitialisation"
                 print_step "Tentative de redémarrage de l'application..."
-                pm2 start skullking 2>/dev/null || pm2 start ecosystem.config.js --env production
+                pm2 start skullking 2>/dev/null || pm2 start ecosystem.config.cjs --env production
             fi
         else
             print_warning "Réinitialisation annulée"
