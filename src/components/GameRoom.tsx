@@ -23,7 +23,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
   const [showTigressChoice, setShowTigressChoice] = useState<boolean>(false);
   const [pendingTigressCard, setPendingTigressCard] = useState<Card | null>(null);
   const leaveGameRef = useRef<(() => void) | null>(null);
-  const { showSuccess, showError, showInfo } = useToast();
+  const { showSuccess, showInfo } = useToast();
 
   const { 
     gameState, 
@@ -329,9 +329,14 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                 <div
                   key={player.id}
                   className={`p-2 rounded-md flex-shrink-0 ${
-                    player.id === user.id ? 'bg-blue-100 dark:bg-blue-900' : 'bg-gray-50 dark:bg-gray-700'
+                    player.id === user.id 
+                      ? 'bg-blue-100 dark:bg-blue-900' 
+                      : gameState.gamePhase === 'BIDDING' && player.bid !== null
+                        ? 'bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
+                        : 'bg-gray-50 dark:bg-gray-700'
                   }`}
-                >                  <div className="flex justify-between items-center">
+                >
+                  <div className="flex justify-between items-center">
                     <span className="font-medium text-sm text-gray-900 dark:text-white">
                       {player.username} {player.id === user.id && '(Vous)'}
                       {player.id === gameState.creatorId && ' 👑'}
@@ -347,15 +352,9 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                   {gameState.roomStatus !== 'LOBBY' && (
                     <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                       <div>
-                        Pari: {player.bid !== null ? `${player.bid} pli(s)` : '⏳ En attente'} | 
-                        Plis: {player.tricksWon} | 
-                        Cartes: {player.cards.length}
+                        Pari: {player.bid !== null ? `${player.bid}` : '⏳'} | 
+                        Plis: {player.tricksWon}
                       </div>
-                      {gameState.gamePhase === 'BIDDING' && player.bid !== null && (
-                        <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                          ✅
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -489,15 +488,16 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
 
           {/* Actions - For other phases */}
           {gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'BIDDING' && !currentPlayer.isReady && (
-            <div className="space-y-3">
-              <div className="text-center mb-3">
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+            <div className="flex flex-col h-full justify-between min-h-[300px]">
+              {/* Section du haut - Instructions */}
+              <div className="text-center">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
                   Pariez sur le nombre de plis que vous pensez remporter
                 </p>
                 
                 {/* Information sur qui commence la manche */}
                 {gameState.currentRound?.currentPlayerId && (
-                  <div className="mt-2 text-center">
+                  <div className="mb-4">
                     <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-md border border-green-200 dark:border-green-700">
                       <span className="text-sm">🎮</span>
                       <p className="text-xs font-medium text-green-800 dark:text-green-200">
@@ -513,87 +513,114 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                 )}
               </div>
               
-              <div className="text-center mb-3">
-                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 px-3 py-2 rounded-md border border-blue-200 dark:border-blue-700">
-                  <span className="text-base">🎲</span>
-                  <div>
-                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Votre pari sélectionné
-                    </p>
-                    <p className="text-base font-bold text-blue-600 dark:text-blue-400">
-                      {bidAmount} pli{bidAmount > 1 ? 's' : ''}
-                    </p>
+              {/* Section du milieu - Pari sélectionné et boutons */}
+              <div className="flex-1 flex flex-col justify-center space-y-4">
+                <div className="text-center">
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 px-3 py-2 rounded-md border border-blue-200 dark:border-blue-700">
+                    <span className="text-base">🎲</span>
+                    <div>
+                      <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Votre pari
+                      </p>
+                      <p className="text-base font-bold text-blue-600 dark:text-blue-400">
+                        {bidAmount} pli{bidAmount > 1 ? 's' : ''}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className={`grid gap-1.5 ${
-                (currentRound?.number || 1) <= 8 
-                  ? 'grid-cols-4 sm:grid-cols-5 md:grid-cols-6' 
-                  : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'
-              }`}>
-                {Array.from({ length: (currentRound?.number || 1) + 1 }, (_, index) => {
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => setBidAmount(index)}
-                      className={`py-2 px-2 rounded-md font-bold text-base transition-all duration-200 ${
-                        bidAmount === index
-                          ? 'bg-blue-600 text-white ring-2 ring-blue-400 ring-opacity-50 transform scale-105 shadow-md'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:scale-102 hover:shadow-sm'
-                      }`}
-                    >
-                      {index}
-                    </button>
-                  );
-                })}
-              </div>
-              
-              <button
-                onClick={handleBid}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-medium py-2.5 px-4 rounded-md transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-[1.01] active:scale-[0.99] text-sm"
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-sm">🎯</span>
-                  <span>Confirmer le pari de {bidAmount} pli{bidAmount > 1 ? 's' : ''}</span>
+                
+                <div className={`grid gap-0.5 p-2 ${
+                  (currentRound?.number || 1) <= 8 
+                    ? 'grid-cols-7 sm:grid-cols-8 md:grid-cols-9 lg:grid-cols-10' 
+                    : 'grid-cols-6 sm:grid-cols-7 md:grid-cols-8 lg:grid-cols-9 xl:grid-cols-10'
+                }`}>
+                  {Array.from({ length: (currentRound?.number || 1) + 1 }, (_, index) => {
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => setBidAmount(index)}
+                        className={`aspect-square rounded-md font-bold text-sm flex items-center justify-center transition-all duration-200 ${
+                          bidAmount === index
+                            ? 'bg-blue-600 text-white ring-2 ring-blue-400 ring-opacity-50 transform scale-105 shadow-md'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:scale-102 hover:shadow-sm'
+                        }`}
+                      >
+                        {index}
+                      </button>
+                    );
+                  })}
                 </div>
-              </button>
+              </div>
+              
+              {/* Section du bas - Bouton de validation */}
+              <div className="p-2">
+                <button
+                  onClick={handleBid}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 px-4 rounded-md transition-all duration-200 shadow-md transform active:scale-[0.99] text-sm"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span>Confirmer le pari</span>
+                  </div>
+                </button>
+              </div>
             </div>
           )}
 
           {gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'BIDDING' && currentPlayer.isReady && (
-            <div className="text-center text-gray-600 dark:text-gray-400">
-              <div className="mb-2 text-sm">
-                ✅ Votre pari a été placé : <span className="font-semibold">{currentPlayer.bid} pli(s)</span>
+            <div className="flex flex-col h-full justify-between min-h-[300px]">
+              {/* Section du haut - Confirmation du pari */}
+              <div className="text-center text-gray-600 dark:text-gray-400">
+                <div className="mb-4 text-sm">
+                  ✅ Votre pari a été placé : <span className="font-semibold">{currentPlayer.bid} pli(s)</span>
+                </div>
+                
+                {/* Information sur qui commence la manche */}
+                {gameState.currentRound?.currentPlayerId && (
+                  <div className="mb-4">
+                    <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-md border border-green-200 dark:border-green-700">
+                      <span className="text-sm">🎮</span>
+                      <p className="text-xs font-medium text-green-800 dark:text-green-200">
+                        {(() => {
+                          const startingPlayer = gameState.players.find(p => p.id === gameState.currentRound?.currentPlayerId);
+                          return startingPlayer?.id === currentPlayer?.id 
+                            ? "Vous commencerez cette manche !" 
+                            : `${startingPlayer?.username} commencera cette manche`;
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               
-              {/* Information sur qui commence la manche */}
-              {gameState.currentRound?.currentPlayerId && (
-                <div className="mb-2">
-                  <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-md border border-green-200 dark:border-green-700">
-                    <span className="text-sm">🎮</span>
-                    <p className="text-xs font-medium text-green-800 dark:text-green-200">
-                      {(() => {
-                        const startingPlayer = gameState.players.find(p => p.id === gameState.currentRound?.currentPlayerId);
-                        return startingPlayer?.id === currentPlayer?.id 
-                          ? "Vous commencerez cette manche !" 
-                          : `${startingPlayer?.username} commencera cette manche`;
-                      })()}
-                    </p>
+              {/* Section du milieu - État des paris des autres joueurs */}
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="text-center text-gray-600 dark:text-gray-400">
+                  <div className="text-xs mb-3">
+                    En attente des autres joueurs...
+                  </div>
+                  <div className="space-y-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                    {gameState.players.map((player: Player) => (
+                      <div 
+                        key={player.id} 
+                        className={`text-xs flex justify-between items-center p-2 rounded-md transition-colors duration-200 ${
+                          player.bid !== null 
+                            ? 'bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700' 
+                            : 'bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500'
+                        }`}
+                      >
+                        <span className="font-medium">{player.username}:</span>
+                        <span className={player.bid !== null ? 'text-green-700 dark:text-green-300' : 'text-orange-600 dark:text-orange-400'}>
+                          {player.bid !== null ? `${player.bid} pli(s)` : '⏳ En cours...'}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )}
+              </div>
               
-              <div className="text-xs">
-                En attente des autres joueurs...
-                <div className="mt-1">
-                  {gameState.players.map((player: Player) => (
-                    <div key={player.id} className="text-xs flex justify-between items-center">
-                      <span>{player.username}:</span>
-                      <span>{player.bid !== null ? `${player.bid} pli(s) ✅` : '⏳ En cours...'}</span>
-                    </div>
-                  ))}
-                </div>
+              {/* Section du bas - Placeholder pour maintenir la structure */}
+              <div className="opacity-0">
+                {/* Espace réservé pour maintenir l'alignement */}
               </div>
             </div>
           )}

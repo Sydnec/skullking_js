@@ -612,12 +612,14 @@ export function setupGameSocketHandlers(io) {
         // Save game state to database after each action
         await saveGameState(roomId, gameState);
         
-        // Send updated game state to all players
-        io.to(roomId).emit('game-updated', gameState);
-        
-        // If this was a card play that completed a trick, emit special event
+        // If this was a card play that completed a trick, handle special display logic
         if (type === 'PLAY_CARD' && actionResult && actionResult.trickWinner) {
-          console.log(`🎯 Emitting trick-completed event for winner: ${actionResult.trickWinner.playerName}`);
+          console.log(`🎯 Trick completed by ${actionResult.trickWinner.playerName}, showing complete trick for 1 second...`);
+          
+          // First, send the game state with the complete trick visible
+          io.to(roomId).emit('game-updated', gameState);
+          
+          // Emit the trick completion event to show winner notification
           io.to(roomId).emit('trick-completed', {
             winner: {
               playerId: actionResult.trickWinner.playerId,
@@ -625,6 +627,77 @@ export function setupGameSocketHandlers(io) {
             },
             completedTrick: actionResult.trickWinner.completedTrick
           });
+
+          // Wait 2 seconds before resetting the current trick and sending the resolved game state
+          setTimeout(async () => {
+            console.log(`🎯 Resetting current trick and sending resolved game state after display delay`);
+            
+            // Now move the completed trick to history
+            const completedTrick = { ...gameState.currentRound.currentTrick };
+            gameState.currentRound.tricks.push(completedTrick);
+            
+            // Check if round is complete after moving trick to history
+            const totalCardsPerPlayer = gameState.currentRound.number;
+            const tricksPlayed = gameState.currentRound.tricks.length;
+            
+            if (tricksPlayed === totalCardsPerPlayer) {
+              // Round is complete, calculate scores
+              calculateRoundScores(gameState);
+              
+              // Check if game is complete
+              if (gameState.currentRound.number >= (gameState.settings?.roundsToPlay || 10)) {
+                gameState.gamePhase = 'GAME_END';
+              } else {
+                // Start next round
+                gameState.currentRound.number++;
+                gameState.gamePhase = 'BIDDING';
+                
+                // Calculate dealer index for this round (rotates each round)
+                const dealerIndex = (gameState.currentRound.number - 1) % gameState.players.length;
+                const dealerId = gameState.players[dealerIndex].id;
+                
+                // Reset round state
+                gameState.currentRound.tricks = [];
+                gameState.currentRound.currentPlayerId = dealerId; // Dealer starts the round
+                gameState.currentRound.dealerId = dealerId;
+                gameState.players.forEach(p => {
+                  p.bid = null;
+                  p.tricksWon = 0;
+                  p.isReady = false;
+                });
+                
+                console.log(`🔄 Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
+                
+                // Deal new cards
+                dealCards(gameState);
+              }
+              
+              // Reset current trick regardless
+              gameState.currentRound.currentTrick = {
+                id: 'trick_1',
+                cards: [],
+                winnerId: null,
+                leadSuit: null
+              };
+            } else {
+              // Reset the current trick for the next one
+              gameState.currentRound.currentTrick = {
+                id: `trick_${gameState.currentRound.tricks.length + 1}`,
+                cards: [],
+                winnerId: null,
+                leadSuit: null
+              };
+            }
+            
+            // Save the updated game state
+            await saveGameState(roomId, gameState);
+            
+            // Send the resolved game state
+            io.to(roomId).emit('game-updated', gameState);
+          }, 2000);
+        } else {
+          // For other actions, send updated game state immediately
+          io.to(roomId).emit('game-updated', gameState);
         }
       } catch (error) {
         console.error('Error handling game action:', error);
@@ -1022,7 +1095,14 @@ function handlePlayCard(gameState, player, cardId, tigressChoice = null) {
   
   // Check if trick is complete (all players have played)
   if (gameState.currentRound.currentTrick.cards.length === gameState.players.length) {
+    // Save the complete trick before resolving it (for display purposes)
+    const completeTrick = { ...gameState.currentRound.currentTrick };
+    
     const trickWinner = resolveTrick(gameState);
+    
+    // Add the complete trick to the result for display
+    trickWinner.completeTrick = completeTrick;
+    
     return { success: true, trickWinner };
   }
   
@@ -1155,10 +1235,10 @@ function resolveTrick(gameState) {
   
   console.log(`🏆 ${winningPlayer.username} wins the trick!`);
   
-  // Move completed trick to history
+  // Set the winner for the current trick but DON'T move it to history yet
+  // It will be moved after the display delay
   trick.winnerId = winner.playerId;
   const completedTrick = { ...trick };
-  gameState.currentRound.tricks.push(completedTrick);
   
   // Return trick winner information for UI display
   const trickWinnerInfo = {
@@ -1167,57 +1247,15 @@ function resolveTrick(gameState) {
     completedTrick: completedTrick
   };
   
-  // Reset current trick
-  gameState.currentRound.currentTrick = {
-    id: `trick_${gameState.currentRound.tricks.length + 1}`,
-    cards: [],
-    winnerId: null,
-    leadSuit: null
-  };
+  // DON'T move trick to history or reset current trick here - it will be done after display delay
+  // This allows the complete trick to be visible for 1 second
   
   // Winner of the trick leads the next trick
   gameState.currentRound.currentPlayerId = winner.playerId;
   
   console.log(`🃏 ${winningPlayer.username} leads the next trick`);
   
-  // Check if round is complete
-  const totalCardsPerPlayer = gameState.currentRound.number;
-  const tricksPlayed = gameState.currentRound.tricks.length;
-  
-  if (tricksPlayed === totalCardsPerPlayer) {
-    // Round is complete, calculate scores
-    calculateRoundScores(gameState);
-    
-    // Check if game is complete
-    if (gameState.currentRound.number >= (gameState.settings?.roundsToPlay || 10)) {
-      gameState.gamePhase = 'GAME_END';
-    } else {
-      // Start next round
-      gameState.currentRound.number++;
-      gameState.gamePhase = 'BIDDING';
-      
-      // Calculate dealer index for this round (rotates each round)
-      const dealerIndex = (gameState.currentRound.number - 1) % gameState.players.length;
-      const dealerId = gameState.players[dealerIndex].id;
-      
-      // Reset round state
-      gameState.currentRound.tricks = [];
-      gameState.currentRound.currentPlayerId = dealerId; // Dealer starts the round
-      gameState.currentRound.dealerId = dealerId;
-      gameState.players.forEach(p => {
-        p.bid = null;
-        p.tricksWon = 0;
-        p.isReady = false;
-      });
-      
-      console.log(`🔄 Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
-      
-      // Deal new cards
-      dealCards(gameState);
-      
-      console.log(`🔄 Starting Round ${gameState.currentRound.number}`);
-    }
-  }
+  // Round completion logic is now handled in the setTimeout after display delay
   
   return trickWinnerInfo;
 }
