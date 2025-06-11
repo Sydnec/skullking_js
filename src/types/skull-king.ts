@@ -40,6 +40,17 @@ export interface Round {
   dealerId: string;
 }
 
+// Chat system types
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  username: string;
+  message: string;
+  timestamp: Date;
+  type: 'USER' | 'SYSTEM';
+  roomId: string;
+}
+
 export interface SkullKingGameState {
   id: string;
   roomId: string;
@@ -57,15 +68,18 @@ export interface SkullKingGameState {
   };
   createdAt: Date;
   updatedAt: Date;
+  // Chat messages for the room
+  chatMessages?: ChatMessage[];
 }
 
 export interface GameAction {
-  type: 'BID' | 'PLAY_CARD' | 'START_GAME' | 'START_ROUND' | 'END_ROUND';
+  type: 'BID' | 'PLAY_CARD' | 'START_GAME' | 'START_ROUND' | 'END_ROUND' | 'SEND_CHAT_MESSAGE';
   playerId: string;
   payload?: {
     bid?: number;
     cardId?: string;
     tigressChoice?: 'PIRATE' | 'ESCAPE';
+    message?: string; // For chat messages
   };
 }
 

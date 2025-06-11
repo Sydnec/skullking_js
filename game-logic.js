@@ -9,6 +9,7 @@ const prisma = new PrismaClient({
 // Store active games in memory (with database persistence)
 const activeGames = new Map();
 const roomUsers = new Map();
+const roomChatMessages = new Map(); // Store chat messages by room
 
 // Constants for game configuration
 const GAME_CONFIG = {
@@ -432,12 +433,20 @@ export function setupGameSocketHandlers(io) {
         gamePhase: gameState.gamePhase
       });
       
+      // Send chat history to the joining user FIRST
+      const chatHistory = roomChatMessages.get(roomId) || [];
+      console.log(`📨 Sending chat history to ${username}: ${chatHistory.length} messages`);
+      socket.emit('chat_history', chatHistory);
+      
       // Send join confirmation to the joining user
       socket.emit('join-success', { gameState });
       
       // Notify all players in room about the updated state
       io.to(roomId).emit('game-updated', gameState);
       io.to(roomId).emit('player-joined', { userId, username });
+
+      // Send system message about player joining (except to the player themselves)
+      sendSystemMessage(io, roomId, `${username} a rejoint la partie`, userId);
     });    socket.on('leave-game', (data) => {
       const { roomId, userId } = data;
       console.log(`User ${userId} leaving room ${roomId}`);
@@ -627,6 +636,39 @@ export function setupGameSocketHandlers(io) {
         });
       }
     });
+
+    // Handle chat messages
+    handleSocketAction('chat-message', async (data) => {
+      const { roomId, userId, username, message } = data;
+      
+      console.log(`💬 Chat message received from ${username} in room ${roomId}: "${message}"`);
+      
+      if (roomId && userId && username && message) {
+        const chatMessage = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          userId: userId,
+          username: username,
+          roomId,
+          message: message,
+          timestamp: new Date(),
+          type: 'USER'
+        };
+
+        // Save message to room's chat history
+        const messages = roomChatMessages.get(roomId) || [];
+        messages.push(chatMessage);
+        roomChatMessages.set(roomId, messages);
+
+        console.log(`💬 Broadcasting message to room ${roomId}, now has ${messages.length} messages`);
+
+        // Emit message to all users in room
+        io.to(roomId).emit('chat-message', chatMessage);
+
+        console.log(`💬 Message from ${username} in room ${roomId}: ${message}`);
+      } else {
+        console.log(`⚠️ Invalid chat message data:`, data);
+      }
+    });
       socket.on('disconnect', () => {
       console.log('👋 User disconnected:', socket.id);
       
@@ -679,6 +721,38 @@ export function setupGameSocketHandlers(io) {
       }
     });
   });
+}
+
+// Function to send system messages to chat
+function sendSystemMessage(io, roomId, message, excludeUserId = null) {
+  const chatMessage = {
+    id: `system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    userId: 'system',
+    username: 'Système',
+    roomId,
+    message,
+    timestamp: new Date(),
+    type: 'SYSTEM'
+  };
+
+  // Save message to room's chat history
+  const messages = roomChatMessages.get(roomId) || [];
+  messages.push(chatMessage);
+  roomChatMessages.set(roomId, messages);
+
+  // Emit message to all users in room except excluded user
+  if (excludeUserId) {
+    // Send to all sockets in room except the excluded user
+    const users = roomUsers.get(roomId) || [];
+    users.forEach(user => {
+      if (user.id !== excludeUserId) {
+        io.to(user.socketId).emit('chat-message', chatMessage);
+      }
+    });
+  } else {
+    // Send to all users in room
+    io.to(roomId).emit('chat-message', chatMessage);
+  }
 }
 
 function handleStartGame(gameState, player) {

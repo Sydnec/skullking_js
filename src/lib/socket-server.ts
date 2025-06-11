@@ -2,7 +2,7 @@ import { Server as HttpServer } from 'http';
 import { NextApiResponse } from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import { PrismaClient } from '@/generated/prisma';
-import { SkullKingGameState, GameAction } from '@/types/skull-king';
+import { SkullKingGameState, GameAction, ChatMessage } from '@/types/skull-king';
 import { SkullKingEngine } from './skull-king-engine';
 
 const prisma = new PrismaClient();
@@ -24,6 +24,7 @@ export interface SocketUser {
 // Store active games in memory (in production, use Redis or database)
 const activeGames = new Map<string, SkullKingGameState>();
 const roomUsers = new Map<string, SocketUser[]>();
+const roomChatMessages = new Map<string, ChatMessage[]>();
 
 export function initializeSocketServer(server: HttpServer) {
   const io = new SocketIOServer(server, {
@@ -66,6 +67,9 @@ export function initializeSocketServer(server: HttpServer) {
       // Add user to room tracking
       addUserToRoom(roomId, { id: userId, username, roomId });
 
+      // Send system message about player joining
+      sendSystemMessage(io, roomId, `${username} a rejoint la room`);
+
       // Get room users and game state
       const users = roomUsers.get(roomId) || [];
       let gameState = activeGames.get(roomId);
@@ -87,6 +91,10 @@ export function initializeSocketServer(server: HttpServer) {
         gameState,
         canStartGame: users.length >= 2 && users.length <= 6
       });
+
+      // Send chat history to the joining user
+      const chatHistory = roomChatMessages.get(roomId) || [];
+      socket.emit('chat_history', chatHistory);
 
       console.log(`User ${username} joined room ${roomId}`);
     });
@@ -154,10 +162,14 @@ export function initializeSocketServer(server: HttpServer) {
     socket.on('leave_room', () => {
       const roomId = socket.data.user?.roomId;
       const userId = socket.data.user?.id;
+      const username = socket.data.user?.username;
       
-      if (roomId && userId) {
+      if (roomId && userId && username) {
         socket.leave(roomId);
         removeUserFromRoom(roomId, userId);
+        
+        // Send system message about player leaving
+        sendSystemMessage(io, roomId, `${username} a quitté la room`);
         
         const users = roomUsers.get(roomId) || [];
         io.to(roomId).emit('room_state', {
@@ -174,8 +186,11 @@ export function initializeSocketServer(server: HttpServer) {
     // Handle disconnect
     socket.on('disconnect', () => {
       const user = socket.data.user;
-      if (user?.roomId) {
+      if (user?.roomId && user?.username) {
         removeUserFromRoom(user.roomId, user.id);
+        
+        // Send system message about player disconnecting
+        sendSystemMessage(io, user.roomId, `${user.username} s'est déconnecté`);
         
         const users = roomUsers.get(user.roomId) || [];
         io.to(user.roomId).emit('room_state', {
@@ -186,6 +201,34 @@ export function initializeSocketServer(server: HttpServer) {
       }
       console.log('User disconnected:', socket.id);
     });
+
+    // Handle chat message
+    socket.on('chat-message', (data: { roomId: string; userId: string; username: string; message: string }) => {
+      const user = socket.data.user;
+      const roomId = data.roomId;
+
+      if (roomId && user && user.id === data.userId) {
+        const chatMessage: ChatMessage = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          userId: user.id,
+          username: user.username,
+          roomId,
+          message: data.message,
+          timestamp: new Date(),
+          type: 'USER'
+        };
+
+        // Save message to room's chat history
+        const messages = roomChatMessages.get(roomId) || [];
+        messages.push(chatMessage);
+        roomChatMessages.set(roomId, messages);
+
+        // Emit message to all users in room
+        io.to(roomId).emit('chat-message', chatMessage);
+
+        console.log(`Message from ${user.username} in room ${roomId}: ${data.message}`);
+      }
+    });
   });
 
   return io;
@@ -193,24 +236,36 @@ export function initializeSocketServer(server: HttpServer) {
 
 function addUserToRoom(roomId: string, user: SocketUser) {
   const users = roomUsers.get(roomId) || [];
-  const existingUser = users.find(u => u.id === user.id);
-  
-  if (!existingUser) {
-    users.push(user);
-    roomUsers.set(roomId, users);
-  }
+  // Remove user if already in room (to prevent duplicates)
+  const filteredUsers = users.filter(u => u.id !== user.id);
+  filteredUsers.push(user);
+  roomUsers.set(roomId, filteredUsers);
 }
 
 function removeUserFromRoom(roomId: string, userId: string) {
   const users = roomUsers.get(roomId) || [];
   const filteredUsers = users.filter(u => u.id !== userId);
-  
-  if (filteredUsers.length === 0) {
-    roomUsers.delete(roomId);
-    activeGames.delete(roomId);
-  } else {
-    roomUsers.set(roomId, filteredUsers);
-  }
+  roomUsers.set(roomId, filteredUsers);
+}
+
+function sendSystemMessage(io: SocketIOServer, roomId: string, message: string) {
+  const chatMessage: ChatMessage = {
+    id: `system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    userId: 'system',
+    username: 'Système',
+    roomId,
+    message,
+    timestamp: new Date(),
+    type: 'SYSTEM'
+  };
+
+  // Save message to room's chat history
+  const messages = roomChatMessages.get(roomId) || [];
+  messages.push(chatMessage);
+  roomChatMessages.set(roomId, messages);
+
+  // Emit message to all users in room
+  io.to(roomId).emit('chat-message', chatMessage);
 }
 
 function processGameAction(gameState: SkullKingGameState, action: GameAction): SkullKingGameState {

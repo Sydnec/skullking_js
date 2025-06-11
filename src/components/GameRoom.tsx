@@ -7,6 +7,7 @@ import { useGameSocket } from '@/hooks/useGameSocket';
 import ConfirmDialog from './ConfirmDialog';
 import CardImage from './CardImage';
 import Scoreboard from './Scoreboard';
+import Chat from './Chat';
 
 interface GameRoomProps {
   user: User;
@@ -20,13 +21,15 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
   const [trickWinner, setTrickWinner] = useState<{ playerName: string; playerId: string } | null>(null);
   const [showTigressChoice, setShowTigressChoice] = useState<boolean>(false);
   const [pendingTigressCard, setPendingTigressCard] = useState<Card | null>(null);
-  const leaveGameRef = useRef<(() => void) | null>(null);const { 
+  const leaveGameRef = useRef<(() => void) | null>(null);  const { 
     gameState, 
     connected, 
     hasJoined,
     leaveGame, 
     deleteRoom,
-    sendGameAction 
+    sendGameAction,
+    sendChatMessage,
+    chatMessages
   } = useGameSocket({
     roomId,
     userId: user.id,
@@ -306,7 +309,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
         </div>
 
         {/* Main Game Area - Full height layout (without player hand) */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 min-h-0">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 min-h-0">
           {/* Players - Fixed height */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 h-full flex flex-col">
             <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white flex-shrink-0">Joueurs</h2>
@@ -347,11 +350,15 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                 </div>
               ))}
             </div>
-          </div>          {/* Game Center - Context-aware section - Fixed height */}
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg p-4 h-full flex flex-col">
+          </div>
+
+          {/* Game Center - Context-aware section - Fixed height */}
+          <div className="md:col-span-2 lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg p-4 h-full flex flex-col">
             <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white flex-shrink-0">
               {gameState.roomStatus === 'LOBBY' 
                 ? 'Information du Lobby'
+                : gameState.gamePhase === 'BIDDING' 
+                  ? `Round ${currentRound?.number || 1} - Phase de Paris` 
                 : gameState.gamePhase === 'PLAYING' 
                   ? 'Pli en Cours' 
                   : 'Actions'
@@ -362,19 +369,65 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
             
             {/* Lobby Info */}
             {gameState.roomStatus === 'LOBBY' && (
-              <div className="space-y-2">
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">Code de la room :</span> {roomId}
+              <div className="h-full flex flex-col justify-between">
+                {/* Informations en haut */}
+                <div className="space-y-3">
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-medium">Code de la room :</span> {roomId}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-medium">Créateur :</span> {gameState.players.find(p => p.id === gameState.creatorId)?.username}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-medium">Joueurs connectés :</span> {gameState.players.length}/{gameState.settings?.maxPlayers || 8}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">Créateur :</span> {gameState.players.find(p => p.id === gameState.creatorId)?.username}
+
+                {/* Message d'attente au milieu */}
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center text-gray-600 dark:text-gray-400 text-sm">
+                    {currentPlayer?.id === gameState.creatorId ? (
+                      <div className="space-y-2">
+                        <div className="text-xs">
+                          Vous êtes le créateur de cette partie
+                        </div>
+                        <div className="text-xs opacity-75">
+                          {gameState.players.length >= 2 ? 
+                            "Vous pouvez démarrer la partie quand vous voulez" : 
+                            "Il faut au moins 2 joueurs pour commencer"
+                          }
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-xs">
+                          En attente dans le lobby...
+                        </div>
+                        <div className="text-xs opacity-75">
+                          En attente que {gameState.players.find(p => p.id === gameState.creatorId)?.username} démarre la partie
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">Joueurs connectés :</span> {gameState.players.length}/{gameState.settings?.maxPlayers || 8}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  En attente du démarrage de la partie...
-                </div>
+
+                {/* Bouton en bas (uniquement pour le créateur) */}
+                {currentPlayer?.id === gameState.creatorId && (
+                  <div className="mt-4">
+                    {gameState.players.length >= 2 ? (
+                      <button
+                        onClick={handleStartGame}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-md transition-colors text-sm shadow-md hover:shadow-lg"
+                      >
+                        🚀 Lancer la partie ({gameState.players.length} joueurs)
+                      </button>
+                    ) : (
+                      <div className="w-full bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 font-medium py-3 px-4 rounded-md text-sm text-center">
+                        ⏳ En attente d&apos;au moins 2 joueurs
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -567,6 +620,13 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
           )}
             </div>
           </div>
+
+          {/* Chat Section - À droite */}
+          <Chat 
+            user={user}
+            onSendMessage={sendChatMessage}
+            messages={chatMessages}
+          />
         </div>
 
         {/* Player Hand - Full width at bottom */}

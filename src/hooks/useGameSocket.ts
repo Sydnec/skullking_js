@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { SkullKingGameState, GameAction } from '@/types/skull-king';
+import { SkullKingGameState, GameAction, ChatMessage } from '@/types/skull-king';
 
 interface UseGameSocketProps {
   roomId: string;
@@ -17,6 +17,8 @@ interface UseGameSocketReturn {
   leaveGame: () => void;
   deleteRoom: () => void;
   sendGameAction: (action: Omit<GameAction, 'playerId'>) => void;
+  sendChatMessage: (message: string) => void;
+  chatMessages: ChatMessage[];
 }
 
 export function useGameSocket({ roomId, userId, username }: UseGameSocketProps): UseGameSocketReturn {
@@ -24,6 +26,7 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
   const [gameState, setGameState] = useState<SkullKingGameState | null>(null);
   const [connected, setConnected] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const joinAttemptRef = useRef(false);
   const currentRoomRef = useRef<string | null>(null);
@@ -112,6 +115,14 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
       window.dispatchEvent(new CustomEvent('trickCompleted', { detail: data }));
     });
 
+    socketInstance.on('chat-message', (message: ChatMessage) => {
+      setChatMessages(prev => [...prev, message]);
+    });
+
+    socketInstance.on('chat_history', (messages: ChatMessage[]) => {
+      setChatMessages(messages);
+    });
+
     socketInstance.on('error', (error: string) => {
       console.error('Socket error:', error);
     });
@@ -167,6 +178,17 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
     }
   }, [socket, connected, userId, roomId]);
 
+  const sendChatMessage = useCallback((message: string) => {
+    if (socket && connected) {
+      socket.emit('chat-message', {
+        roomId,
+        userId,
+        username,
+        message
+      });
+    }
+  }, [socket, connected, roomId, userId, username]);
+
   const deleteRoom = useCallback(() => {
     if (socket && connected) {
       console.log(`Deleting room: ${roomId}`);
@@ -183,6 +205,8 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
     joinGame,
     leaveGame,
     deleteRoom,
-    sendGameAction
+    sendGameAction,
+    sendChatMessage,
+    chatMessages
   };
 }
