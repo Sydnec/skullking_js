@@ -103,7 +103,7 @@ export function useGameSocket({ roomId, userId, username }: UseGameSocketProps):
     socketInstance.on('game-error', (data: { type: string; message: string; action: string }) => {
       console.log('Game error received:', data);
       // Display error message to user
-      alert(data.message);
+      alert(`Erreur de jeu: ${data.message}`);
     });
 
     socketInstance.on('trick-completed', (data: { winner: { playerId: string; playerName: string }; completedTrick: unknown }) => {
