@@ -1,5 +1,5 @@
 import { PrismaClient } from './src/generated/prisma/index.js';
-import { SkullKingEngine } from './src/lib/skull-king-engine.js';
+import { SkullKingEngine } from './src/lib/skull-king-engine.ts';
 
 // Initialize Prisma client with error handling
 const prisma = new PrismaClient({
@@ -1254,6 +1254,3 @@ function calculateRoundScores(gameState) {
     console.log(`  ${player.username}: ${player.score} points (bid: ${player.bid}, won: ${player.tricksWon})`);
   });
 }
-
-// Bonus points calculation is now centralized in the TypeScript engine
-// No more duplication - everything goes through SkullKingEngine
