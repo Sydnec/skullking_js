@@ -167,7 +167,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
       <CardImage
         key={card.id}
         card={card}
-        className={`w-16 h-24 ${hasBeenPlayedInCurrentTrick ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`w-28 h-42 ${hasBeenPlayedInCurrentTrick ? 'opacity-50 cursor-not-allowed' : ''}`}
         isPlayable={canPlayCard && !hasBeenPlayedInCurrentTrick ? true : false}
         onClick={() => {
           if (canPlayCard && !hasBeenPlayedInCurrentTrick) {
@@ -373,7 +373,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                       </div>
                       <CardImage 
                         card={card} 
-                        className="w-16 h-24"
+                        className="w-28 h-42"
                         tigressChoice={tigressChoice}
                       />
                     </div>

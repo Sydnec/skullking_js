@@ -78,16 +78,59 @@ export default function CardImage({ card, className = '', onClick, isPlayable = 
           alt={altText}
           fill
           className="object-cover rounded-lg shadow-md"
-          sizes="(max-width: 768px) 80px, 120px"
+          sizes="(max-width: 768px) 100px, 150px"
         />
         
-        {/* Overlay pour les cartes numériques avec la valeur */}
+        {/* Numéros pour les cartes numériques - haut gauche et bas droite */}
         {card.type === 'NUMBER' && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-white bg-opacity-90 rounded-full w-8 h-8 flex items-center justify-center text-black font-bold text-sm shadow-md">
-              {card.value}
+          <>
+            {/* Numéro en haut à gauche */}
+            <div className="absolute top-0 left-0">
+              <span className={`font-bold text-sm px-1 py-0.5 rounded ${
+                card.suit === 'BLACK' || card.suit === 'PURPLE' ? 'text-white' :
+                'text-black'
+              }`}>
+                {card.value}
+              </span>
             </div>
-          </div>
+            
+            {/* Numéro en bas à droite (retourné) */}
+            <div className="absolute bottom-0 right-0 transform rotate-180">
+              <span className={`font-bold text-sm px-1 py-0.5 rounded ${
+                card.suit === 'BLACK' || card.suit === 'PURPLE' ? 'text-white' :
+                'text-black'
+              }`}>  
+                {card.value}
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* Emojis pour les cartes spéciales - haut gauche et bas droite */}
+        {card.type !== 'NUMBER' && (
+          <>
+            {/* Emoji en haut à gauche */}
+            <div className="absolute top-0 left-0">
+              <span className="text-lg px-1 py-0.5 filter">
+                {card.type === 'SKULL_KING' && '💀'}
+                {card.type === 'PIRATE' && '⚔️'}
+                {card.type === 'MERMAID' && '🧜‍♀️'}
+                {card.type === 'TIGRESS' && '🐯'}
+                {card.type === 'ESCAPE' && '🏃'}
+              </span>
+            </div>
+            
+            {/* Emoji en bas à droite (retourné) */}
+            <div className="absolute bottom-0 right-0 transform rotate-180">
+              <span className="text-lg px-1 py-0.5 filter">
+                {card.type === 'SKULL_KING' && '💀'}
+                {card.type === 'PIRATE' && '⚔️'}
+                {card.type === 'MERMAID' && '🧜‍♀️'}
+                {card.type === 'TIGRESS' && '🐯'}
+                {card.type === 'ESCAPE' && '🏃'}
+              </span>
+            </div>
+          </>
         )}
         
         {/* Effet de survol pour les cartes jouables */}
