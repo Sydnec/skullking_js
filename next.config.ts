@@ -2,10 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  experimental: {
-    // Optimisation pour Vercel
-    serverComponentsExternalPackages: ['sqlite3'],
-  },
+  // Moved from experimental.serverComponentsExternalPackages
+  serverExternalPackages: ['sqlite3'],
   turbopack: {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js']
   },
