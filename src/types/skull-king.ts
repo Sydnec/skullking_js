@@ -20,6 +20,14 @@ export interface Player {
   score: number;
   isReady: boolean;
   isOnline?: boolean; // Optional field for online status
+  captureEvents?: CaptureEvent[]; // Capture events for bonus calculation
+}
+
+// Capture event for bonus calculation
+export interface CaptureEvent {
+  capturerType: CardType; // What captured
+  capturedType: CardType; // What was captured
+  winnerId: string; // Who won the trick
 }
 
 export interface Trick {
@@ -85,11 +93,16 @@ export interface GameAction {
 
 // Scoring constants
 export const SCORING = {
-  BID_BONUS: 20, // Bonus for making exact bid
-  SKULL_KING_BONUS: 30, // Bonus for capturing with Skull King
-  PIRATE_BONUS: 20, // Bonus for capturing with Pirate
+  TRICK_POINTS: 20, // Points per trick when bid is successful
   FAIL_PENALTY: -10, // Penalty per trick difference when failing bid
-  ZERO_BID_BONUS: 10, // Bonus per round for successful zero bid
+  ZERO_BID_POINTS: 10, // Bonus per round for successful zero bid
+  
+  // Bonus points (only when bid is successful)
+  COLORED_14_BONUS: 10, // Bonus per colored 14 (Green, Purple, Yellow) in hand at end of round
+  BLACK_14_BONUS: 20, // Bonus for black 14 (Pirate Flag) in hand at end of round
+  MERMAID_CAPTURED_BY_PIRATE_BONUS: 20, // Bonus for mermaid captured by pirate
+  PIRATE_CAPTURED_BY_SKULL_KING_BONUS: 30, // Bonus for pirate captured by Skull King
+  SKULL_KING_CAPTURED_BY_MERMAID_BONUS: 40, // Bonus for Skull King captured by mermaid
 } as const;
 
 // Card hierarchy for trick resolution
@@ -98,5 +111,5 @@ export const CARD_POWER = {
   NUMBER: 1,
   PIRATE: 2,
   SKULL_KING: 3,
-  MERMAID: 4, // Special: beats pirates but not numbers in suit
+  MERMAID: 4,
 } as const;

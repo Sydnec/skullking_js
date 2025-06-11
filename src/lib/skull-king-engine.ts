@@ -1,4 +1,4 @@
-import { Card, CardSuit, Player, Round, Trick, SkullKingGameState, SCORING } from '@/types/skull-king';
+import { Card, CardSuit, CardType, Player, Round, Trick, SkullKingGameState, SCORING, CaptureEvent } from '@/types/skull-king';
 
 export class SkullKingEngine {
   /**
@@ -101,68 +101,91 @@ export class SkullKingEngine {
   }
 
   /**
-   * Determine the winner of a trick
-   */  static resolveTrick(trick: Trick): string {
-    if (trick.cards.length === 0) return '';
+   * Determine the winner of a trick and analyze capture events
+   */
+  static resolveTrick(trick: Trick): { winnerId: string; captureEvents: CaptureEvent[] } {
+    if (trick.cards.length === 0) return { winnerId: '', captureEvents: [] };
+    
+    const captureEvents: CaptureEvent[] = [];
+    let winnerId = '';
     
     // Special case: If Skull King is played, it wins unless there's a Mermaid
     const skullKingCard = trick.cards.find(c => c.card.type === 'SKULL_KING');
     const mermaidCards = trick.cards.filter(c => c.card.type === 'MERMAID');
-    
-    if (skullKingCard && mermaidCards.length === 0) {
-      return skullKingCard.playerId;
-    }
-    
-    // If there are mermaids and Skull King, mermaid wins
-    if (skullKingCard && mermaidCards.length > 0) {
-      return mermaidCards[0].playerId; // First mermaid played wins
-    }
-      // If only mermaids are played (no Skull King), check for pirates
-    if (mermaidCards.length > 0 && !skullKingCard) {
-      const pirateCards = trick.cards.filter(c => 
+    const pirateCards = trick.cards.filter(c => 
         c.card.type === 'PIRATE' || 
         (c.card.type === 'TIGRESS' && c.tigressChoice === 'PIRATE')
       );
+    
+    if (skullKingCard && mermaidCards.length === 0) {
+      winnerId = skullKingCard.playerId;
+      
+      for (const pirate of pirateCards) {
+        captureEvents.push({
+          capturerType: 'SKULL_KING',
+          capturedType: 'PIRATE',
+          winnerId: skullKingCard.playerId
+        });
+      }
+    }
+    // If there are mermaids and Skull King, mermaid wins
+    else if (skullKingCard && mermaidCards.length > 0) {
+      winnerId = mermaidCards[0].playerId; // First mermaid played wins
+      // Mermaid captured Skull King
+      captureEvents.push({
+        capturerType: 'MERMAID',
+        capturedType: 'SKULL_KING',
+        winnerId: mermaidCards[0].playerId
+      });
+    }
+    // If only mermaids are played (no Skull King), check for pirates
+    else if (mermaidCards.length > 0 && !skullKingCard) {
       if (pirateCards.length > 0) {
         // Mermaid loses to pirates/tigress acting as pirate
-        return pirateCards[0].playerId;
+        winnerId = pirateCards[0].playerId;
+        // Pirates captured mermaids
+        for (const mermaid of mermaidCards) {
+          captureEvents.push({
+            capturerType: 'PIRATE',
+            capturedType: 'MERMAID',
+            winnerId: pirateCards[0].playerId
+          });
+        }
       } else {
         // No pirates, mermaid wins
-        return mermaidCards[0].playerId;
+        winnerId = mermaidCards[0].playerId;
+      }
+    }
+    // Regular resolution: Pirates/Tigress-as-Pirate beat number cards, highest number in leading suit wins
+    else {
+      const leadCard = trick.cards[0];
+      const leadSuit = leadCard.card.suit;
+      
+      if (pirateCards.length > 0) {
+        winnerId = pirateCards[0].playerId; // First pirate/tigress-as-pirate played wins
+      } else {
+        // Check for cards following suit
+        const suitCards = trick.cards.filter(c => 
+          c.card.suit === leadSuit && c.card.type === 'NUMBER'
+        );
+        
+        if (suitCards.length > 0) {
+          // Find highest value in leading suit
+          let highest = suitCards[0];
+          suitCards.forEach(card => {
+            if ((card.card.value || 0) > (highest.card.value || 0)) {
+              highest = card;
+            }
+          });
+          winnerId = highest.playerId;
+        } else {
+          // If no one followed suit, first card wins
+          winnerId = leadCard.playerId;
+        }
       }
     }
     
-    // Regular resolution: Pirates/Tigress-as-Pirate beat number cards, highest number in leading suit wins
-    const leadCard = trick.cards[0];
-    const leadSuit = leadCard.card.suit;
-    
-    // Check for pirates/tigress acting as pirate (they beat number cards)
-    const pirateCards = trick.cards.filter(c => 
-      c.card.type === 'PIRATE' || 
-      (c.card.type === 'TIGRESS' && c.tigressChoice === 'PIRATE')
-    );
-    if (pirateCards.length > 0) {
-      return pirateCards[0].playerId; // First pirate/tigress-as-pirate played wins
-    }
-    
-    // Check for cards following suit
-    const suitCards = trick.cards.filter(c => 
-      c.card.suit === leadSuit && c.card.type === 'NUMBER'
-    );
-    
-    if (suitCards.length > 0) {
-      // Find highest value in leading suit
-      let highest = suitCards[0];
-      suitCards.forEach(card => {
-        if ((card.card.value || 0) > (highest.card.value || 0)) {
-          highest = card;
-        }
-      });
-      return highest.playerId;
-    }
-    
-    // If no one followed suit, first card wins
-    return leadCard.playerId;
+    return { winnerId, captureEvents };
   }
 
   /**
@@ -173,22 +196,72 @@ export class SkullKingEngine {
     const tricksWon = player.tricksWon;
     
     if (bid === 0) {
-      // Zero bid: 10 points per round + 10 for each other player's bid
+      // Zero bid: 10 points per round if successful
       if (tricksWon === 0) {
-        return SCORING.ZERO_BID_BONUS * roundNumber;
+        return SCORING.ZERO_BID_POINTS * roundNumber;
       } else {
         return SCORING.FAIL_PENALTY * tricksWon;
       }
     } else {
       // Regular bid
       if (tricksWon === bid) {
-        // Made exact bid: 20 points + 10 per trick
-        return SCORING.BID_BONUS + (tricksWon * 10);
+        // Made exact bid: 20 per trick + bonus points
+        let score = tricksWon * SCORING.TRICK_POINTS;
+        
+        // Add bonus points (only if bid is successful)
+        score += this.calculateBonusPoints(player);
+        
+        return score;
       } else {
-        // Failed bid: -10 per trick difference
+        // Failed bid: -10 per trick difference (no bonus points)
         return SCORING.FAIL_PENALTY * Math.abs(tricksWon - bid);
       }
     }
+  }
+
+  /**
+   * Calculate bonus points for a player (14 cards + capture events)
+   */
+  private static calculateBonusPoints(player: Player): number {
+    let bonusPoints = 0;
+    
+    // Bonus for 14s
+    for (const card of player.cards) {
+      if (card.type === 'NUMBER' && card.value === 14) {
+        if (card.suit === 'BLACK') {
+          bonusPoints += SCORING.BLACK_14_BONUS; // 20 points for black 14
+        } else if (card.suit && ['GREEN', 'PURPLE', 'YELLOW'].includes(card.suit)) {
+          bonusPoints += SCORING.COLORED_14_BONUS; // 10 points for colored 14
+        }
+      }
+    }
+    
+    // Bonus for capture events
+    if (player.captureEvents) {
+      for (const event of player.captureEvents) {
+        if (event.winnerId === player.id) {
+          bonusPoints += this.getCaptureBonus(event.capturerType, event.capturedType);
+        }
+      }
+    }
+    
+    return bonusPoints;
+  }
+
+  /**
+   * Get bonus points for a specific capture combination
+   */
+  private static getCaptureBonus(capturerType: CardType, capturedType: CardType): number {
+    if (capturerType === 'PIRATE' && capturedType === 'MERMAID') {
+      return SCORING.MERMAID_CAPTURED_BY_PIRATE_BONUS; // 20 points
+    }
+    if (capturerType === 'SKULL_KING' && capturedType === 'PIRATE') {
+      return SCORING.PIRATE_CAPTURED_BY_SKULL_KING_BONUS; // 30 points
+    }
+    if (capturerType === 'MERMAID' && capturedType === 'SKULL_KING') {
+      return SCORING.SKULL_KING_CAPTURED_BY_MERMAID_BONUS; // 40 points
+    }
+    return 0;
   }
 
   /**
@@ -224,7 +297,8 @@ export class SkullKingEngine {
       bid: null,
       tricksWon: 0,
       score: 0,
-      isReady: false
+      isReady: false,
+      captureEvents: []
     }));
 
     return {
@@ -254,7 +328,8 @@ export class SkullKingEngine {
       ...player,
       bid: null,
       tricksWon: 0,
-      isReady: false
+      isReady: false,
+      captureEvents: []
     }));
 
     const newRound: Round = {
@@ -373,13 +448,19 @@ export class SkullKingEngine {
     
     if (trickComplete) {
       // Resolve trick
-      const winnerId = this.resolveTrick(updatedTrick);
+      const { winnerId, captureEvents } = this.resolveTrick(updatedTrick);
       const completedTrick = { ...updatedTrick, winnerId };
 
-      // Update player trick count
+      // Update player trick count and capture events
       const playersWithTricks = updatedPlayers.map(p => {
         if (p.id === winnerId) {
-          return { ...p, tricksWon: p.tricksWon + 1 };
+          const existingCaptureEvents = p.captureEvents || [];
+          
+          return { 
+            ...p, 
+            tricksWon: p.tricksWon + 1,
+            captureEvents: [...existingCaptureEvents, ...captureEvents]
+          };
         }
         return p;
       });
@@ -441,7 +522,7 @@ export class SkullKingEngine {
   /**
    * Calculate scores for a completed round
    */
-  private static calculateRoundScores(players: Player[]): Player[] {
+  static calculateRoundScores(players: Player[]): Player[] {
     return players.map(player => {
       const bid = player.bid || 0;
       const tricks = player.tricksWon;
@@ -455,11 +536,14 @@ export class SkullKingEngine {
           roundScore = -10 * tricks;
         }
       } else {
-        // Normal bid: 20 points if exact, +10 per trick if exact, -10 per difference
+        // Normal bid: 20 points per trick if exact, -10 per difference
         if (tricks === bid) {
-          roundScore = 20 + (10 * bid);
+          roundScore = SCORING.TRICK_POINTS * bid;
+          
+          // Add bonus points (only if bid is successful)
+          roundScore += this.calculateBonusPoints(player);
         } else {
-          roundScore = -10 * Math.abs(tricks - bid);
+          roundScore = SCORING.FAIL_PENALTY * Math.abs(tricks - bid);
         }
       }
 
@@ -468,7 +552,8 @@ export class SkullKingEngine {
         score: player.score + roundScore,
         bid: null, // Reset for next round
         tricksWon: 0,
-        isReady: false
+        isReady: false,
+        captureEvents: [] // Reset capture events for next round
       };
     });
   }

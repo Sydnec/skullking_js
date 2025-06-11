@@ -1,4 +1,5 @@
 import { PrismaClient } from './src/generated/prisma/index.js';
+import { SkullKingEngine } from './src/lib/skull-king-engine.js';
 
 // Initialize Prisma client with error handling
 const prisma = new PrismaClient({
@@ -333,7 +334,8 @@ export function setupGameSocketHandlers(io) {
               score: 0,
               tricksWon: 0,
               isReady: false,
-              isOnline: true
+              isOnline: true,
+              captureEvents: []
             })),
             currentRound: {
               number: 1,
@@ -412,7 +414,8 @@ export function setupGameSocketHandlers(io) {
               score: 0,
               tricksWon: 0,
               isReady: false,
-              isOnline: true
+              isOnline: true,
+              captureEvents: []
             });
             console.log(`➕ Added new player ${username} to lobby ${roomId}`);
           } else {
@@ -661,6 +664,7 @@ export function setupGameSocketHandlers(io) {
                   p.bid = null;
                   p.tricksWon = 0;
                   p.isReady = false;
+                  p.capturedCards = [];
                 });
                 
                 console.log(`🔄 Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
@@ -858,6 +862,7 @@ function handleStartGame(gameState, player, io, roomId) {
     player.tricksWon = 0;
     player.isReady = false;
     player.cards = [];
+    player.capturedCards = [];
   });
   
   // Deal cards for the first round
@@ -1196,6 +1201,17 @@ function resolveTrick(gameState) {
   const winningPlayer = gameState.players.find(p => p.id === winner.playerId);
   if (winningPlayer) {
     winningPlayer.tricksWon++;
+    
+    // Collect all cards from the trick for the winner (for bonus calculation)
+    if (!winningPlayer.capturedCards) {
+      winningPlayer.capturedCards = [];
+    }
+    
+    // Add all cards from this trick to the winner's captured cards
+    const trickCards = trick.cards.map(entry => entry.card);
+    winningPlayer.capturedCards.push(...trickCards);
+    
+    console.log(`📦 ${winningPlayer.username} captured ${trickCards.length} cards: ${trickCards.map(c => c.name).join(', ')}`);
   }
   
   console.log(`🏆 ${winningPlayer.username} wins the trick!`);
@@ -1226,16 +1242,18 @@ function resolveTrick(gameState) {
 }
 
 function calculateRoundScores(gameState) {
-  for (const player of gameState.players) {
-    const bid = player.bid || 0;
-    const tricksWon = player.tricksWon;
-    
-    if (bid === tricksWon) {
-      // Exact bid: 20 points + 10 per trick
-      player.score += 20 + (tricksWon * 10);
-    } else {
-      // Missed bid: lose 10 points per difference
-      player.score -= Math.abs(bid - tricksWon) * 10;
-    }
-  }
+  // Use the centralized TypeScript engine for scoring
+  // Convert players to TypeScript format and calculate scores
+  const updatedPlayers = SkullKingEngine.calculateRoundScores(gameState.players);
+  
+  // Update the game state with new scores
+  gameState.players = updatedPlayers;
+  
+  console.log('📊 Round scores calculated using centralized engine');
+  gameState.players.forEach(player => {
+    console.log(`  ${player.username}: ${player.score} points (bid: ${player.bid}, won: ${player.tricksWon})`);
+  });
 }
+
+// Bonus points calculation is now centralized in the TypeScript engine
+// No more duplication - everything goes through SkullKingEngine

@@ -1,0 +1,373 @@
+#!/bin/bash
+
+# 🏴‍☠️ Skull King - Script de gestion unifié
+# Usage: sk [command]
+
+# Auto-détection du répertoire du projet
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="/home/sydnec/skullking_js"
+LOG_DIR="$PROJECT_DIR/logs"
+
+# Couleurs
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+print_section() {
+    echo -e "${CYAN}📊 $1${NC}"
+    echo "----------------------------"
+}
+
+print_step() {
+    echo -e "${GREEN}[ÉTAPE]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+# Fonction pour vérifier si l'application est en ligne
+check_app_status() {
+    if pm2 list 2>/dev/null | grep -q "skullking.*online"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Fonction de monitoring complète
+monitor_function() {
+    clear
+    echo -e "${PURPLE}🏴‍☠️ SKULL KING - MONITORING${NC}"
+    echo "================================="
+    echo ""
+    
+    # 1. Statut PM2
+    print_section "Statut PM2"
+    if pm2 list 2>/dev/null | grep -q "skullking"; then
+        pm2 list
+        echo ""
+        if check_app_status; then
+            print_success "Application Skull King en ligne"
+        else
+            print_error "Application Skull King hors ligne"
+        fi
+    else
+        print_error "Aucun processus PM2 trouvé"
+    fi
+    echo ""
+
+    # 2. Test de l'API
+    print_section "Test de l'API"
+    if curl -s http://localhost:3000/api/health >/dev/null 2>&1; then
+        print_success "API accessible"
+        echo "Réponse: $(curl -s http://localhost:3000/api/health)"
+    else
+        print_error "API non accessible"
+    fi
+    echo ""
+
+    # 3. Ressources système
+    print_section "Ressources système"
+    echo "💾 Mémoire: $(free -h | awk '/^Mem:/ {printf "Utilisée: %s/%s (%.2f%%)", $3, $2, ($3/$2)*100}')"
+    echo "🔥 CPU: $(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')% utilisé"
+    echo "💿 Disque: $(df -h / | awk 'NR==2 {printf "Utilisé: %s/%s (%s)", $3, $2, $5}')"
+    echo ""
+
+    # 4. Connectivité réseau
+    print_section "Connectivité réseau"
+    echo "🌐 IP locale: $(hostname -I | awk '{print $1}')"
+    if ss -tuln | grep -q ":3000 "; then
+        print_success "Port 3000 ouvert et en écoute"
+    else
+        print_error "Port 3000 non accessible"
+    fi
+    echo ""
+
+    # 5. Logs récents
+    print_section "Logs récents (dernières 5 lignes)"
+    pm2 logs skullking --lines 5 --nostream 2>/dev/null || echo "Aucun log disponible"
+    echo ""
+
+    # 6. Informations de déploiement
+    print_section "Informations de déploiement"
+    if [ -f "$PROJECT_DIR/.next/BUILD_ID" ]; then
+        echo "📅 Dernière mise à jour du build: $(stat -c %y "$PROJECT_DIR/.next/BUILD_ID" 2>/dev/null || echo "Non disponible")"
+    fi
+    echo "📁 Répertoire: $PROJECT_DIR"
+    echo "👤 Utilisateur: $(whoami)"
+    echo "🖥️  Hostname: $(hostname)"
+    echo ""
+    echo "🔄 Pour actualiser: sk monitor"
+    echo "📊 Pour PM2 monitoring: pm2 monit"
+    echo "📋 Pour redémarrer: sk restart"
+}
+
+# Fonction de mise à jour
+update_function() {
+    cd "$PROJECT_DIR" || {
+        print_error "Impossible d'accéder au répertoire $PROJECT_DIR"
+        exit 1
+    }
+
+    print_step "🔄 Mise à jour Skull King..."
+    
+    # Sauvegarde des logs
+    print_step "Sauvegarde des logs actuels..."
+    if [ -f "./logs/combined.log" ]; then
+        cp ./logs/combined.log "./logs/combined.log.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+
+    # Vérifier et arrêter PM2 si nécessaire
+    print_step "📋 Vérification du statut PM2..."
+    if pm2 describe skullking &> /dev/null; then
+        print_step "✅ Processus PM2 'skullking' trouvé"
+        print_step "Arrêt temporaire de l'application..."
+        pm2 stop skullking
+    else
+        print_warning "⚠️ Processus PM2 'skullking' non trouvé"
+    fi
+
+    # Sauvegarde de la base de données
+    print_step "Sauvegarde de la base de données..."
+    if [ -f "./prisma/db/production.db" ]; then
+        cp "./prisma/db/production.db" "./prisma/db/production.db.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+
+    # Git pull
+    print_step "Récupération des dernières modifications..."
+    git pull origin main || print_warning "Impossible de faire git pull"
+
+    # Installation des dépendances
+    print_step "Installation des dépendances..."
+    npm ci --production
+
+    # Build de l'application
+    print_step "Construction de l'application..."
+    npm run build
+
+    # Génération Prisma
+    print_step "Génération du client Prisma..."
+    npx prisma generate
+
+    # Migration de la base de données
+    print_step "Migration de la base de données..."
+    NODE_ENV=production npx prisma db push
+
+    # Redémarrage
+    print_step "Redémarrage de l'application..."
+    pm2 restart skullking || pm2 start ecosystem.config.js --env production
+    pm2 save
+
+    # Vérification finale
+    sleep 5
+    if check_app_status; then
+        print_success "🎉 Mise à jour terminée avec succès!"
+        print_success "L'application est en ligne sur http://localhost:3000"
+    else
+        print_error "❌ Problème lors de la mise à jour"
+        echo "Vérifiez les logs avec: sk logs"
+    fi
+}
+
+case "$1" in
+    start)
+        echo "🚀 Démarrage de Skull King..."
+        cd "$PROJECT_DIR"
+        pm2 start ecosystem.config.js --env production 2>/dev/null || {
+            print_warning "Processus déjà en cours, tentative de redémarrage..."
+            pm2 restart skullking
+        }
+        pm2 save
+        sleep 2
+        if check_app_status; then
+            print_success "Skull King démarré avec succès"
+        else
+            print_error "Échec du démarrage"
+        fi
+        ;;
+    stop)
+        echo "🛑 Arrêt de Skull King..."
+        pm2 stop skullking 2>/dev/null || print_warning "Application déjà arrêtée"
+        print_success "Skull King arrêté"
+        ;;
+    restart)
+        echo "🔄 Redémarrage de Skull King..."
+        cd "$PROJECT_DIR"
+        pm2 restart skullking 2>/dev/null || {
+            print_warning "Processus non trouvé, démarrage..."
+            pm2 start ecosystem.config.js --env production
+        }
+        pm2 save
+        sleep 2
+        if check_app_status; then
+            print_success "Skull King redémarré avec succès"
+        else
+            print_error "Échec du redémarrage"
+        fi
+        ;;
+    status)
+        if check_app_status; then
+            print_success "Skull King en ligne"
+        else
+            print_error "Skull King hors ligne"
+        fi
+        ;;
+    logs)
+        echo "📋 Logs de Skull King en temps réel (Ctrl+C pour arrêter):"
+        echo "=========================================================="
+        pm2 logs skullking 2>/dev/null || print_error "Impossible d'accéder aux logs"
+        ;;
+    monitor)
+        monitor_function
+        ;;
+    update)
+        update_function
+        ;;
+    deploy)
+        echo "🚀 Déploiement complet..."
+        cd "$PROJECT_DIR"
+        
+        # Vérification et création du fichier .env
+        print_step "Vérification de la configuration d'environnement..."
+        if [ ! -f ".env" ]; then
+            if [ -f ".env.example" ]; then
+                print_step "Copie de .env.example vers .env..."
+                cp .env.example .env
+                print_success "Fichier .env créé à partir de .env.example"
+            else
+                print_warning "Ni .env ni .env.example trouvés"
+            fi
+        else
+            print_success "Fichier .env déjà présent"
+        fi
+        
+        # Arrêt de l'application
+        print_step "Arrêt de l'application si elle est en cours d'exécution..."
+        pm2 stop skullking 2>/dev/null || echo "Application pas encore démarrée"
+
+        # Installation des dépendances
+        print_step "Installation des dépendances..."
+        npm ci --production
+
+        # Génération du client Prisma
+        print_step "Génération du client Prisma..."
+        npx prisma generate
+
+        # Build
+        print_step "Construction de l'application..."
+        npm run build
+
+        # Initialisation de la base de données
+        print_step "Initialisation de la base de données de production..."
+        NODE_ENV=production npx prisma db push
+
+        # Démarrage avec PM2
+        print_step "Démarrage avec PM2..."
+        pm2 start ecosystem.config.js --env production
+
+        # Sauvegarde de la configuration PM2
+        print_step "Sauvegarde de la configuration PM2..."
+        pm2 save
+
+        # Vérification finale
+        sleep 5
+        if check_app_status; then
+            print_success "🎉 Déploiement terminé avec succès!"
+            print_success "L'application est accessible sur http://localhost:3000"
+        else
+            print_error "❌ Problème lors du déploiement"
+        fi
+        ;;
+    api)
+        echo "🏥 Vérification de la santé de l'application..."
+        if curl -s http://localhost:3000/api/health >/dev/null 2>&1; then
+            print_success "API accessible"
+            echo "Réponse: $(curl -s http://localhost:3000/api/health)"
+        else
+            print_error "API non accessible"
+        fi
+        ;;
+    reset)
+        # Vérifier si l'option --y ou -y est présente
+        auto_confirm=false
+        if [[ "$2" == "--y" ]] || [[ "$2" == "-y" ]]; then
+            auto_confirm=true
+        fi
+        
+        echo "🔄 Réinitialisation complète du projet..."
+        echo ""
+        echo -e "${YELLOW}⚠️  ATTENTION: Cette action va supprimer toutes les données!${NC}"
+        echo -e "${YELLOW}⚠️  Les utilisateurs, salles de jeu et parties seront perdues!${NC}"
+        echo ""
+        
+        if [ "$auto_confirm" = true ]; then
+            echo "Mode automatique activé (--y), confirmation ignorée"
+            confirmation="o"
+        else
+            echo -n "Êtes-vous sûr de vouloir continuer? (O/n): "
+            read -n 1 confirmation
+            echo ""
+        fi
+        
+        if [[ "$confirmation" =~ ^[Oo]$ ]] || [ -z "$confirmation" ]; then
+            cd "$PROJECT_DIR" || {
+                print_error "Impossible d'accéder au répertoire $PROJECT_DIR"
+                exit 1
+            }
+
+            # Exécution du script de reset
+            print_step "Exécution du script de réinitialisation..."
+            node reset-project.js
+            
+            if [ $? -eq 0 ]; then
+                print_success "Réinitialisation terminée avec succès"
+                
+                sleep 2
+                if check_app_status; then
+                    print_success "Projet réinitialisé et prêt à utiliser"
+                fi
+            else
+                print_error "Erreur lors de la réinitialisation"
+                print_step "Tentative de redémarrage de l'application..."
+                pm2 start skullking 2>/dev/null || pm2 start ecosystem.config.js --env production
+            fi
+        else
+            print_warning "Réinitialisation annulée"
+        fi
+        ;;
+    *)
+        echo -e "${PURPLE}🏴‍☠️ SKULL KING - Script de gestion unifié${NC}"
+        echo "============================================="
+        echo ""
+        echo "Usage: sk [commande]"
+        echo ""
+        echo "Commandes disponibles:"
+        echo ""
+        echo "  start         - Démarre l'application"
+        echo "  stop          - Arrête l'application"
+        echo "  restart       - Redémarre l'application"
+        echo "  status        - Affiche le statut détaillé"
+        echo "  logs          - Affiche les logs PM2 en temps réel"
+        echo "  monitor       - Monitoring complet avec ressources système"
+        echo "  deploy        - Déploiement complet (deps + build + start)"
+        echo "  update        - Mise à jour complète de l'application"
+        echo "  api           - Vérifie la santé de l'API"
+        echo "  reset         - Réinitialise complètement le projet (⚠️ SUPPRIME TOUTES LES DONNÉES)"
+        echo "                  Options: --y ou -y pour confirmer automatiquement"
+        echo ""
+        exit 1
+        ;;
+esac

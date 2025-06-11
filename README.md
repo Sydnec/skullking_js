@@ -2,142 +2,90 @@
 
 Une implémentation en ligne du célèbre jeu de cartes **Skull King** développée avec Next.js, TypeScript, Socket.IO et Prisma.
 
-## 🎮 À propos du jeu
+![Skull King Screenshot](https://img.shields.io/badge/Game-Skull%20King-red) ![Next.js](https://img.shields.io/badge/Next.js-15.3.3-black) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![Socket.IO](https://img.shields.io/badge/Socket.IO-4.8.1-green) ![Prisma](https://img.shields.io/badge/Prisma-6.9.0-indigo)
 
-Skull King est un jeu de plis astucieux où les joueurs doivent prédire exactement le nombre de plis qu'ils vont remporter à chaque manche. Le jeu utilise un jeu de cartes unique comprenant :
+## 🎮 À propos
 
-- **Cartes numériques** : 1-14 dans 4 couleurs (Noir, Rouge, Bleu, Jaune)
-- **Cartes spéciales** :
-  - 🏴‍☠️ **Skull King** (1 carte) - La carte la plus puissante
-  - 🏴‍☠️ **Pirates** (5 cartes) - Battent toutes les cartes colorées
-  - 🧜‍♀️ **Sirènes** (2 cartes) - Capturent les pirates
-  - 🐯 **Tigresse** (1 carte) - Agis comme une fuite ou comme un pirate, au choix  
-  - 🏃‍♂️ **Fuites** (5 cartes) - Ne peuvent remporter aucun pli
+Skull King est un jeu de plis stratégique où les joueurs doivent prédire exactement le nombre de plis qu'ils vont remporter. Cette implémentation offre une expérience multijoueur complète avec interface moderne et règles officielles.
 
-## ✨ Fonctionnalités
+## ✨ Fonctionnalités principales
 
-- 🌐 **Multijoueur en temps réel** avec Socket.IO
+- 🌐 **Multijoueur en temps réel** (2-8 joueurs)
 - 🏠 **Système de salles** avec codes d'accès
-- 👥 **2-8 joueurs** par partie
-- 📱 **Interface responsive** adaptée mobile et desktop
-- 💾 **Persistance des données** avec Prisma et SQLite
-- 🔄 **Reconnexion automatique** après déconnexion
+- 📱 **Interface responsive** (mobile/desktop)
+- 💾 **Persistance des données** avec reconnexion automatique
 - 🎯 **Système de scores** fidèle aux règles officielles
-- 🎨 **Interface moderne** avec Tailwind CSS
+- 💬 **Chat en temps réel** intégré
+- 🎨 **Interface moderne** avec cartes personnalisées
 
-## 🛠️ Technologies utilisées
+## 🛠️ Technologies
 
 - **Frontend** : Next.js 15, React 19, TypeScript
-- **Backend** : Node.js, Socket.IO
-- **Base de données** : Prisma ORM avec SQLite
+- **Backend** : Node.js, Socket.IO  
+- **Base de données** : Prisma ORM + SQLite
 - **Styling** : Tailwind CSS
-- **Temps réel** : Socket.IO pour la communication bidirectionnelle
 
-## 🚀 Installation et démarrage
+## 📚 Documentation
 
-### Prérequis
-- Node.js 18+ 
-- npm ou yarn
+La documentation complète est organisée en guides spécialisés :
 
-### Installation
+- **[📦 Guide d'installation](docs/INSTALLATION.md)** - Installation, déploiement et configuration complète
+- **[🏴‍☠️ Règles du jeu](docs/RULES.md)** - Règles officielles détaillées avec exemples
+- **[🤝 Guide de contribution](docs/CONTRIBUTING.md)** - Comment contribuer au projet
 
-1. **Clonez le repository**
+## 🎮 Comment jouer
+
+1. **Créez ou rejoignez une salle** avec un code
+2. **Attendez les autres joueurs** (2-8 joueurs)
+3. **Pariez** sur vos plis à chaque manche
+4. **Jouez vos cartes** en suivant les règles
+5. **Gagnez des points** si votre pari est exact !
+
+> 📖 **Règles complètes** : Consultez le [guide des règles](docs/RULES.md) pour tous les détails.
+
+## ⚡ Outil de gestion `sk`
+
+Le script `sk` simplifie toutes les opérations :
+
 ```bash
-git clone https://github.com/votre-username/skullking_js.git
-cd skullking_js
+./sk deploy    # Déploiement complet
+./sk start     # Démarrer l'application
+./sk stop      # Arrêter l'application
+./sk logs      # Voir les logs
+./sk monitor   # Monitoring en temps réel
+./sk update    # Mise à jour complète
 ```
 
-2. **Installez les dépendances**
-```bash
-npm install
-```
-
-3. **Configurez la base de données**
-```bash
-npx prisma generate
-npx prisma db push
-```
-
-4. **Démarrez le serveur de développement**
-```bash
-npm run dev
-```
-
-5. **Ouvrez votre navigateur**
-Rendez-vous sur [http://localhost:3000](http://localhost:3000)
-
-## 📖 Comment jouer
-
-1. **Créez ou rejoignez une salle** avec un code de salle
-2. **Attendez les autres joueurs** (minimum 2, maximum 8)
-3. **Le créateur lance la partie**
-4. **Pour chaque manche** :
-   - Recevez vos cartes (1 carte au round 1, 2 au round 2, etc.)
-   - **Pariez** sur le nombre de plis que vous pensez remporter
-   - **Jouez vos cartes** à tour de rôle
-   - Gagnez des points si votre pari est exact !
-
-### 🏆 Système de points
-
-- **Pari réussi** : 20 points + 10 points par pli remporté
-- **Pari raté** : -10 points par pli de différence
-- **Bonus spéciaux** pour certaines combinaisons
+> 🔧 **Installation détaillée** : Voir le [guide d'installation](docs/INSTALLATION.md)
 
 ## 🗂️ Structure du projet
 
 ```
 skullking_js/
-├── src/
-│   ├── app/                 # Pages Next.js (App Router)
-│   │   ├── page.tsx         # Page d'accueil
-│   │   ├── [roomCode]/      # Pages de salle dynamiques
-│   │   └── api/             # API Routes
-│   ├── components/          # Composants React
-│   │   ├── GameLobby.tsx    # Lobby de jeu
-│   │   ├── GameRoom.tsx     # Salle de jeu
-│   │   └── UsernameForm.tsx # Formulaire de connexion
-│   ├── lib/                 # Utilitaires et services
-│   │   ├── skull-king-engine.ts  # Moteur de jeu
-│   │   ├── socket-server.ts      # Configuration Socket.IO
-│   │   └── prisma.ts             # Client Prisma
-│   ├── types/               # Définitions TypeScript
-│   └── hooks/               # Hooks React personnalisés
-├── prisma/                  # Schéma de base de données
-├── game-logic.js           # Logique de jeu côté serveur
-└── server.js               # Serveur Express + Socket.IO
-```
-
-## 🎯 Scripts disponibles
-
-- `npm run dev` - Démarre le serveur de développement
-- `npm run build` - Build de production
-- `npm run start` - Démarre le serveur de production
-- `npm run lint` - Vérification ESLint
-
-## 🔧 Configuration
-
-Le projet utilise un fichier `.env` pour la configuration :
-
-```env
-DATABASE_URL="file:./dev.db"
-PORT=3000
+├── docs/                    # 📚 Documentation complète
+│   ├── INSTALLATION.md      # Guide d'installation et déploiement
+│   ├── RULES.md            # Règles officielles du jeu
+│   └── CONTRIBUTING.md     # Guide de contribution
+├── src/                    # Code source
+│   ├── app/               # Next.js App Router
+│   ├── components/        # Composants React
+│   ├── lib/              # Services et utilitaires
+│   ├── types/            # Types TypeScript
+│   └── hooks/            # Hooks personnalisés
+├── prisma/               # Base de données
+├── game-logic.js         # Moteur de jeu serveur
+├── server.js            # Serveur Socket.IO
+└── sk                   # Script de gestion unifié
 ```
 
 ## 🤝 Contribution
 
-Les contributions sont les bienvenues ! N'hésitez pas à :
+Les contributions sont les bienvenues ! Consultez le [guide de contribution](docs/CONTRIBUTING.md) pour :
 
-1. Forker le projet
-2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
-3. Commiter vos changements (`git commit -m 'Add some AmazingFeature'`)
-4. Pusher sur la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
-
-## 📝 Roadmap
-
-- [ ] Amélioration de l'UI/UX
-- [ ] Ajout d'animations pour les cartes
-- [ ] Mode spectateur
+- 🔄 Processus de contribution
+- 🧪 Standards de code
+- 🐛 Signalement de bugs
+- ✨ Propositions de fonctionnalités
 
 ## 📄 Licence
 
@@ -145,4 +93,16 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 
 ## 👨‍💻 Auteur
 
-**Sydnec**
+**Sydnec** - [GitHub](https://github.com/sydnec)
+
+---
+
+## 🎯 Liens utiles
+
+- 📖 [Documentation complète](docs/)
+- 🏴‍☠️ [Règles officielles Skull King](docs/RULES.md)
+- 🔧 [Guide d'installation](docs/INSTALLATION.md)
+
+---
+
+*Amusez-vous bien en jouant à Skull King ! 🏴‍☠️*
