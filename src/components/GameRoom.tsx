@@ -477,38 +477,6 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
             )}
 
           {/* Actions - For other phases */}
-          {gameState.roomStatus === 'LOBBY' && (
-            <div className="space-y-2">
-              <div className="text-center text-gray-600 dark:text-gray-400 mb-3 text-sm">
-                En attente dans le lobby...
-              </div>
-              
-              {currentPlayer?.id === gameState.creatorId ? (
-                <div className="space-y-2">
-                  <div className="text-xs text-gray-600 dark:text-gray-400 text-center">
-                    Vous êtes le créateur de cette partie
-                  </div>
-                  {gameState.players.length >= 2 ? (
-                    <button
-                      onClick={handleStartGame}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded-md transition-colors text-sm"
-                    >
-                      Lancer la partie ({gameState.players.length} joueurs)
-                    </button>
-                  ) : (
-                    <div className="text-center text-orange-600 dark:text-orange-400 text-xs">
-                      Il faut au moins 2 joueurs pour commencer
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center text-gray-600 dark:text-gray-400 text-xs">
-                  En attente que {gameState.players.find(p => p.id === gameState.creatorId)?.username} démarre la partie...
-                </div>
-              )}
-            </div>
-          )}
-          
           {gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'BIDDING' && !currentPlayer.isReady && (
             <div className="space-y-3">
               <div className="text-center mb-3">
