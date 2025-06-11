@@ -31,8 +31,20 @@ if [ -f "./logs/combined.log" ]; then
     cp ./logs/combined.log ./logs/combined.log.backup.$(date +%Y%m%d_%H%M%S)
 fi
 
-print_step "Arrêt temporaire de l'application..."
-pm2 stop skullking
+echo -e "${YELLOW}📋 Vérification du statut PM2...${NC}"
+# Vérifier si le processus PM2 existe et obtenir son statut
+if pm2 describe skullking &> /dev/null; then
+   print_step "✅ Processus PM2 'skullking' trouvé"
+
+    print_step "Arrêt temporaire de l'application..."
+    pm2 stop skullking
+else
+    print_warning "⚠️ Processus PM2 'skullking' non trouvé. Lancement du processus..."
+    pm2 start server.js --name skullking
+
+    print_step "Arrêt temporaire de l'application..."
+    pm2 stop skullking
+fi
 
 print_step "Sauvegarde de la base de données..."
 if [ -f "./prisma/db/production.db" ]; then

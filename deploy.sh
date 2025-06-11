@@ -41,14 +41,11 @@ npm ci --production
 print_step "Génération du client Prisma..."
 npx prisma generate
 
-print_step "Construction de l'application..."
-npm run build
-
 print_step "Initialisation de la base de données de production..."
 NODE_ENV=production npx prisma db push
 
 print_step "Démarrage avec PM2..."
-pm2 start ecosystem.config.js --env production
+pm2 start server.js --name skullking
 
 print_step "Sauvegarde de la configuration PM2..."
 pm2 save
