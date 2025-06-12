@@ -22,6 +22,227 @@ const GAME_CONFIG = {
   RECONNECTION_TIMEOUT: 300000 // 5 minutes
 };
 
+// Scoring constants
+const SCORING = {
+  TRICK_POINTS: 20,
+  ZERO_BID_POINTS: 10,
+  FAIL_PENALTY: -10,
+  BLACK_14_BONUS: 20,
+  COLORED_14_BONUS: 10,
+  MERMAID_CAPTURED_BY_PIRATE_BONUS: 20,
+  PIRATE_CAPTURED_BY_SKULL_KING_BONUS: 30,
+  SKULL_KING_CAPTURED_BY_MERMAID_BONUS: 40
+};
+
+/**
+ * Create a complete deck for Skull King (70 cards)
+ */
+function createDeck() {
+  const deck = [];
+  
+  // Number cards (1-14 in each of 4 suits = 56 cards)
+  const suits = ['BLACK', 'GREEN', 'PURPLE', 'YELLOW'];
+  suits.forEach(suit => {
+    for (let value = 1; value <= 14; value++) {
+      deck.push({
+        id: `${suit}_${value}`,
+        type: 'NUMBER',
+        suit,
+        value,
+        name: `${value} of ${suit}`
+      });
+    }
+  });
+
+  // Special cards (14 cards total)
+  // Pirates (5 cards)
+  for (let i = 1; i <= 5; i++) {
+    deck.push({
+      id: `PIRATE_${i}`,
+      type: 'PIRATE',
+      name: `Pirate ${i}`
+    });
+  }
+
+  // Sirènes/Mermaids (2 cards)
+  for (let i = 1; i <= 2; i++) {
+    deck.push({
+      id: `MERMAID_${i}`,
+      type: 'MERMAID',
+      name: `Sirène ${i}`
+    });
+  }
+
+  // Skull King (1 card)
+  deck.push({
+    id: 'SKULL_KING',
+    type: 'SKULL_KING',
+    name: 'Skull King'
+  });
+
+  // Tigresse (1 card)
+  deck.push({
+    id: 'TIGRESS',
+    type: 'TIGRESS',
+    name: 'Tigresse'
+  });
+
+  // Fuites/Escape cards (5 cards)
+  for (let i = 1; i <= 5; i++) {
+    deck.push({
+      id: `ESCAPE_${i}`,
+      type: 'ESCAPE',
+      name: `Fuite ${i}`
+    });
+  }
+
+  return deck;
+}
+
+/**
+ * Shuffle a deck of cards
+ */
+function shuffleDeck(deck) {
+  const shuffled = [...deck];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
+ * Deal cards for a specific round
+ */
+function dealCards(deck, players, roundNumber) {
+  const cardsPerPlayer = roundNumber;
+  const shuffled = shuffleDeck(deck);
+  const updatedPlayers = [...players];
+  
+  let cardIndex = 0;
+  
+  // Deal cards to each player
+  updatedPlayers.forEach(player => {
+    player.cards = shuffled.slice(cardIndex, cardIndex + cardsPerPlayer);
+    cardIndex += cardsPerPlayer;
+  });
+  
+  return {
+    players: updatedPlayers,
+    remainingDeck: shuffled.slice(cardIndex)
+  };
+}
+
+/**
+ * Determine the winner of a trick and analyze capture events
+ */
+function resolveTrick(trick) {
+  if (trick.cards.length === 0) return { winnerId: '', captureEvents: [] };
+  
+  const captureEvents = [];
+  let winnerId = '';
+  
+  // Special case: If Skull King is played, it wins unless there's a Mermaid
+  const skullKingCard = trick.cards.find(c => c.card.type === 'SKULL_KING');
+  const mermaidCards = trick.cards.filter(c => c.card.type === 'MERMAID');
+  const pirateCards = trick.cards.filter(c => 
+      c.card.type === 'PIRATE' || 
+      (c.card.type === 'TIGRESS' && c.tigressChoice === 'PIRATE')
+    );
+  
+  if (skullKingCard && mermaidCards.length === 0) {
+    winnerId = skullKingCard.playerId;
+    
+    for (let i = 0; i < pirateCards.length; i++) {
+      captureEvents.push({
+        capturerType: 'SKULL_KING',
+        capturedType: 'PIRATE',
+        winnerId: skullKingCard.playerId
+      });
+    }
+  }
+  // If there are mermaids and Skull King, mermaid wins
+  else if (skullKingCard && mermaidCards.length > 0) {
+    winnerId = mermaidCards[0].playerId; // First mermaid played wins
+    // Mermaid captured Skull King
+    captureEvents.push({
+      capturerType: 'MERMAID',
+      capturedType: 'SKULL_KING',
+      winnerId: mermaidCards[0].playerId
+    });
+  }
+  // If only mermaids are played (no Skull King), check for pirates
+  else if (mermaidCards.length > 0 && !skullKingCard) {
+    if (pirateCards.length > 0) {
+      // Mermaid loses to pirates/tigress acting as pirate
+      winnerId = pirateCards[0].playerId;
+      // Pirates captured mermaids
+      for (let i = 0; i < mermaidCards.length; i++) {
+          captureEvents.push({
+          capturerType: 'PIRATE',
+          capturedType: 'MERMAID',
+          winnerId: pirateCards[0].playerId
+        });
+      }
+    } else {
+      // No pirates, mermaid wins
+      winnerId = mermaidCards[0].playerId;
+    }
+  }
+  // Regular resolution: Pirates/Tigress-as-Pirate beat number cards, highest number in leading suit wins
+  else {
+    const leadCard = trick.cards[0];
+    const leadSuit = leadCard.card.suit;
+    
+    if (pirateCards.length > 0) {
+      winnerId = pirateCards[0].playerId; // First pirate/tigress-as-pirate played wins
+    } else {
+      // Check for cards following suit
+      const suitCards = trick.cards.filter(c => 
+        c.card.suit === leadSuit && c.card.type === 'NUMBER'
+      );
+      
+      if (suitCards.length > 0) {
+        // Find highest value in leading suit
+        let highest = suitCards[0];
+        suitCards.forEach(card => {
+          if ((card.card.value || 0) > (highest.card.value || 0)) {
+            highest = card;
+          }
+        });
+        winnerId = highest.playerId;
+      } else {
+        // If no one followed suit, first card wins
+        winnerId = leadCard.playerId;
+      }
+    }
+  }
+  
+  return { winnerId, captureEvents };
+}
+
+/**
+ * Check if a card can be legally played
+ */
+function isValidPlay(card, trick, playerHand) {
+  // First card of trick can always be played
+  if (trick.cards.length === 0) return true;
+  
+  const leadCard = trick.cards[0].card;
+  const leadSuit = leadCard.suit;
+  
+  // Special cards can always be played
+  if (card.type !== 'NUMBER') return true;
+  
+  // If leading suit is defined and player has cards of that suit, must follow suit
+  if (leadSuit && card.suit !== leadSuit) {
+    const hasLeadSuit = playerHand.some(c => c.suit === leadSuit && c.type === 'NUMBER');
+    return !hasLeadSuit; // Can only play off-suit if no cards of leading suit
+  }
+  
+  return true;
+}
+
 // Enhanced logging
 const logWithTimestamp = (level, message, data = {}) => {
   const timestamp = new Date().toISOString();
@@ -208,7 +429,93 @@ function isValidCardPlay(card, playerHand, currentTrick) {
   return { valid: true };
 }
 
-export function setupGameSocketHandlers(io) {
+// Scoring functions
+/**
+ * Calculate bonus points for a player (14 cards + capture events)
+ */
+function calculateBonusPoints(player) {
+  let bonusPoints = 0;
+  
+  // Bonus for 14s
+  for (const card of player.cards) {
+    if (card.type === 'NUMBER' && card.value === 14) {
+      if (card.suit === 'BLACK') {
+        bonusPoints += SCORING.BLACK_14_BONUS; // 20 points for black 14
+      } else if (card.suit && ['GREEN', 'PURPLE', 'YELLOW'].includes(card.suit)) {
+        bonusPoints += SCORING.COLORED_14_BONUS; // 10 points for colored 14
+      }
+    }
+  }
+  
+  // Bonus for capture events
+  if (player.captureEvents) {
+    for (const event of player.captureEvents) {
+      if (event.winnerId === player.id) {
+        bonusPoints += getCaptureBonus(event.capturerType, event.capturedType);
+      }
+    }
+  }
+  
+  return bonusPoints;
+}
+
+/**
+ * Get bonus points for a specific capture combination
+ */
+function getCaptureBonus(capturerType, capturedType) {
+  if (capturerType === 'PIRATE' && capturedType === 'MERMAID') {
+    return SCORING.MERMAID_CAPTURED_BY_PIRATE_BONUS; // 20 points
+  }
+  if (capturerType === 'SKULL_KING' && capturedType === 'PIRATE') {
+    return SCORING.PIRATE_CAPTURED_BY_SKULL_KING_BONUS; // 30 points
+  }
+  if (capturerType === 'MERMAID' && capturedType === 'SKULL_KING') {
+    return SCORING.SKULL_KING_CAPTURED_BY_MERMAID_BONUS; // 40 points
+  }
+  return 0;
+}
+
+/**
+ * Calculate scores for a completed round
+ */
+function calculateRoundScores(players, roundNumber) {
+  return players.map(player => {
+    const bid = player.bid || 0;
+    const tricks = player.tricksWon;
+    let roundScore = 0;
+
+    if (bid === 0) {
+      // Bid 0: 10 points per round number
+      if (tricks === 0) {
+        roundScore = SCORING.ZERO_BID_POINTS * roundNumber;
+      } else {
+        roundScore = SCORING.FAIL_PENALTY * roundNumber; 
+      }
+    } else {
+      // Normal bid: 20 points per trick if exact, -10 per difference
+      if (tricks === bid) {
+        roundScore = SCORING.TRICK_POINTS * bid;
+        
+        // Add bonus points (only if bid is successful)
+        roundScore += calculateBonusPoints(player);
+      } else {
+        roundScore = SCORING.FAIL_PENALTY * Math.abs(tricks - bid);
+      }
+    }
+
+    return {
+      ...player,
+      score: player.score + roundScore,
+      bid: null, // Reset for next round
+      tricksWon: 0,
+      isReady: false,
+      captureEvents: [] // Reset capture events for next round
+    };
+  });
+}
+
+// Socket.IO game handlers
+function setupGameSocketHandlers(io) {
   logWithTimestamp('info', 'Setting up Socket.IO game handlers...');
   
   // Start periodic save
@@ -641,7 +948,7 @@ export function setupGameSocketHandlers(io) {
             
             if (tricksPlayed === totalCardsPerPlayer) {
               // Round is complete, calculate scores
-              calculateRoundScores(gameState);
+              calculateRoundScoresInGameState(gameState);
               
               // Check if game is complete
               if (gameState.currentRound.number >= (gameState.settings?.roundsToPlay || 10)) {
@@ -878,80 +1185,6 @@ function handleStartGame(gameState, player, io, roomId) {
   return { success: true };
 }
 
-function dealCards(gameState) {
-  // Create a complete Skull King deck (70 cartes)
-  const suits = ['BLACK', 'GREEN', 'PURPLE', 'YELLOW'];
-  const deck = [];
-  
-  // Add numbered cards (1-14 for each suit = 56 cards)
-  for (const suit of suits) {
-    for (let value = 1; value <= 14; value++) {
-      deck.push({
-        id: `${suit}_${value}`,
-        type: 'NUMBER',
-        suit: suit,
-        value: value,
-        name: `${value} of ${suit}`
-      });
-    }
-  }
-  
-  // Add special cards (14 cards total)
-  // Skull King (1 card)
-  deck.push({ id: 'SKULL_KING', type: 'SKULL_KING', name: 'Skull King' });
-  
-  // Sirènes/Mermaids (2 cards)
-  deck.push(
-    { id: 'MERMAID_1', type: 'MERMAID', name: 'Sirène 1' },
-    { id: 'MERMAID_2', type: 'MERMAID', name: 'Sirène 2' }
-  );
-  
-  // Pirates (5 cards)
-  for (let i = 1; i <= 5; i++) {
-    deck.push({ id: `PIRATE_${i}`, type: 'PIRATE', name: `Pirate ${i}` });
-  }
-  
-  // Tigresse (1 card)
-  deck.push({ id: 'TIGRESS', type: 'TIGRESS', name: 'Tigresse' });
-  
-  // Fuites/Escape cards (5 cards)
-  for (let i = 1; i <= 5; i++) {
-    deck.push({ id: `ESCAPE_${i}`, type: 'ESCAPE', name: `Fuite ${i}` });
-  }
-  
-  // Shuffle deck using Fisher-Yates algorithm
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  
-  // Verify deck has exactly 70 cards
-  console.log(`🃏 Deck created with ${deck.length} cards (should be 70)`);
-  if (deck.length !== 70) {
-    console.error(`⚠️ Deck size error: expected 70 cards, got ${deck.length}`);
-  }
-
-
-  
-  // Deal cards to players (round number = cards per player)
-  const cardsPerPlayer = gameState.currentRound.number;
-  let cardIndex = 0;
-  
-  console.log(`🃏 Dealing ${cardsPerPlayer} card(s) to each of ${gameState.players.length} players`);
-  
-  for (const player of gameState.players) {
-    player.cards = [];
-    for (let i = 0; i < cardsPerPlayer; i++) {
-      if (cardIndex < deck.length) {
-        player.cards.push(deck[cardIndex++]);
-      }
-    }
-    console.log(`📇 Player ${player.username} received ${player.cards.length} cards`);
-  }
-  
-  console.log(`✅ Card dealing complete. Used ${cardIndex}/${deck.length} cards from deck`);
-}
-
 function handleBid(gameState, player, bid) {
   if (gameState.gamePhase !== 'BIDDING') {
     return { error: 'Vous ne pouvez miser que pendant la phase d\'enchères' };
@@ -1067,7 +1300,7 @@ function handlePlayCard(gameState, player, cardId, tigressChoice = null) {
     // Save the complete trick before resolving it (for display purposes)
     const completeTrick = { ...gameState.currentRound.currentTrick };
     
-    const trickWinner = resolveTrick(gameState);
+    const trickWinner = resolveTrickInGameState(gameState);
     
     // Add the complete trick to the result for display
     trickWinner.completeTrick = completeTrick;
@@ -1078,7 +1311,7 @@ function handlePlayCard(gameState, player, cardId, tigressChoice = null) {
   return { success: true };
 }
 
-function resolveTrick(gameState) {
+function resolveTrickInGameState(gameState) {
   const trick = gameState.currentRound.currentTrick;
   
   console.log(`🔍 Resolving trick with ${trick.cards.length} cards:`);
@@ -1090,9 +1323,9 @@ function resolveTrick(gameState) {
   const skullKingCards = trick.cards.filter(c => c.card.type === 'SKULL_KING');
   const mermaidCards = trick.cards.filter(c => c.card.type === 'MERMAID');
   const pirateCards = trick.cards.filter(c => 
-    c.card.type === 'PIRATE' || 
-    (c.card.type === 'TIGRESS' && c.tigressChoice === 'PIRATE')
-  );
+      c.card.type === 'PIRATE' || 
+      (c.card.type === 'TIGRESS' && c.tigressChoice === 'PIRATE')
+    );
   const escapeCards = trick.cards.filter(c => 
     c.card.type === 'ESCAPE' || 
     (c.card.type === 'TIGRESS' && c.tigressChoice === 'ESCAPE')
@@ -1241,7 +1474,7 @@ function resolveTrick(gameState) {
 }
 
 // Enhanced round scoring with bonus logic and per-round calculation
-function calculateRoundScores(gameState) {
+function calculateRoundScoresInGameState(gameState) {
   const SCORING = {
     ZERO_BID_POINTS: 10,
     TRICK_POINTS: 20,
@@ -1320,3 +1553,13 @@ function calculateRoundScores(gameState) {
     };
   });
 }
+
+export {
+  createDeck,
+  shuffleDeck,
+  dealCards,
+  resolveTrick,
+  isValidPlay,
+  calculateRoundScores,
+  setupGameSocketHandlers
+};
