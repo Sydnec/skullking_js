@@ -653,6 +653,7 @@ function setupGameSocketHandlers(io) {
               completedTricks: []
             },
             gamePhase: 'WAITING', // Waiting in lobby
+            deck: createDeck(), // Initialize with a fresh deck
             settings: {
               maxPlayers: 8,
               roundsToPlay: 10
@@ -975,8 +976,15 @@ function setupGameSocketHandlers(io) {
                 
                 console.log(`🔄 Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
                 
+                // Create a new deck for the round if it doesn't exist
+                if (!gameState.deck) {
+                  gameState.deck = createDeck();
+                }
+                
                 // Deal new cards
-                dealCards(gameState);
+                const dealResult = dealCards(gameState.deck, gameState.players, gameState.currentRound.number);
+                gameState.players = dealResult.players;
+                gameState.deck = dealResult.remainingDeck;
               }
               
               // Reset current trick regardless
@@ -1171,8 +1179,15 @@ function handleStartGame(gameState, player, io, roomId) {
     player.capturedCards = [];
   });
   
+  // Create a new deck for the game if it doesn't exist
+  if (!gameState.deck) {
+    gameState.deck = createDeck();
+  }
+  
   // Deal cards for the first round
-  dealCards(gameState);
+  const dealResult = dealCards(gameState.deck, gameState.players, gameState.currentRound.number);
+  gameState.players = dealResult.players;
+  gameState.deck = dealResult.remainingDeck;
   console.log(`🚀 Game started in room ${gameState.roomId} by ${player.username}`);
   console.log(`📋 Round ${gameState.currentRound.number} started, each player gets ${gameState.currentRound.number} card(s)`);
   
