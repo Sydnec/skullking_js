@@ -39,16 +39,7 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
     setLoading(false);
   }, [mounted]);
 
-  // Redirect to home if no user found after a delay
-  useEffect(() => {
-    if (!loading && !user) {
-      const timeout = setTimeout(() => {
-        router.push('/');
-      }, 2000);
-      
-      return () => clearTimeout(timeout);
-    }
-  }, [loading, user, router]);
+  // No automatic redirect - allow user to login directly from room page
 
   const handleLogin = (userData: User) => {
     setUser(userData);
@@ -85,11 +76,16 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
             <p className="text-gray-600 dark:text-gray-400 mt-2">
               Connectez-vous pour rejoindre cette partie Skull King
             </p>
-            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              Redirection vers laccueil dans quelques secondes...
-            </div>
           </div>
           <UsernameForm onUsernameSubmit={handleLogin} />
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => router.push('/')}
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+            >
+              Retour à l&apos;accueil
+            </button>
+          </div>
         </div>
       </div>
     );

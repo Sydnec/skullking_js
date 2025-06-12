@@ -18,8 +18,7 @@
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf .next && rm -rf out",
-    "postinstall": "prisma generate"
+    "clean": "rm -rf .next && rm -rf out"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
