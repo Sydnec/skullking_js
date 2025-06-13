@@ -109,13 +109,13 @@ export default function Chat({ user, onSendMessage, messages }: ChatProps) {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Tapez votre message..."
-            className="flex-1 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="flex-1 min-w-0 px-3 py-2 border dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             maxLength={200}
           />
           <button
             type="submit"
             disabled={!message.trim()}
-            className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 transition-colors"
+            className="flex-shrink-0 w-10 h-10 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 transition-colors flex items-center justify-center"
           >
             📤
           </button>
