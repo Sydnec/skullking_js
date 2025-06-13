@@ -954,6 +954,17 @@ function setupGameSocketHandlers(io) {
               // Check if game is complete
               if (gameState.currentRound.number >= (gameState.settings?.roundsToPlay || 10)) {
                 gameState.gamePhase = 'GAME_END';
+                
+                // Update room status to FINISHED in database
+                try {
+                  await prisma.room.update({
+                    where: { code: roomId },
+                    data: { status: 'FINISHED' }
+                  });
+                  console.log(`🏁 Room ${roomId} status updated to FINISHED in database`);
+                } catch (error) {
+                  console.error(`❌ Error updating room status to FINISHED for ${roomId}:`, error);
+                }
               } else {
                 // Start next round
                 gameState.currentRound.number++;
@@ -1133,7 +1144,7 @@ function sendToastNotification(io, roomId, type, message, title, excludeUserId =
   }
 }
 
-function handleStartGame(gameState, player, io, roomId) {
+async function handleStartGame(gameState, player, io, roomId) {
   // Only the room creator can start the game
   if (player.id !== gameState.creatorId) {
     return { error: 'Seul le créateur de la room peut démarrer la partie' };
@@ -1152,6 +1163,17 @@ function handleStartGame(gameState, player, io, roomId) {
   // Start the game
   gameState.roomStatus = 'GAME_STARTED';
   gameState.gamePhase = 'BIDDING';
+  
+  // Update room status in database
+  try {
+    await prisma.room.update({
+      where: { code: roomId },
+      data: { status: 'PLAYING' }
+    });
+    console.log(`📊 Room ${roomId} status updated to PLAYING in database`);
+  } catch (error) {
+    console.error(`❌ Error updating room status for ${roomId}:`, error);
+  }
   
   // Initialize the first round
   gameState.currentRound = {
