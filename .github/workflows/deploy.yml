@@ -1,0 +1,30 @@
+name: Deploy on Raspberry Pi
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull latest code
+        run: |
+          cd /home/sydnec/skullking_js
+          git pull origin main
+
+      - name: Install dependencies
+        run: |
+          cd /home/sydnec/skullking_js
+          npm install
+
+      - name: Build the app
+        run: |
+          cd /home/sydnec/skullking_js
+          npm run build
+
+      - name: Restart app with PM2
+        run: |
+          pm2 reload skullking
