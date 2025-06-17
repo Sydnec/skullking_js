@@ -333,6 +333,8 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                       ? 'bg-blue-100 dark:bg-blue-900' 
                       : gameState.gamePhase === 'BIDDING' && player.bid !== null
                         ? 'bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
+                        : gameState.gamePhase === 'PLAYING' && player.isReady
+                          ? 'bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
                         : 'bg-gray-50 dark:bg-gray-700'
                   }`}
                 >
