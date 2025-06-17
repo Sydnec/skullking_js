@@ -115,9 +115,16 @@ function shuffleDeck(deck) {
  * Deal cards for a specific round
  */
 function dealCards(deck, players, roundNumber) {
-  const cardsPerPlayer = roundNumber;
   const shuffled = shuffleDeck(deck);
   const updatedPlayers = [...players];
+  
+  // Calculate the maximum number of cards we can distribute equally
+  const maxCardsPerPlayer = Math.floor(shuffled.length / players.length);
+  
+  // Use the minimum between the requested round number and what's actually possible
+  const cardsPerPlayer = Math.min(roundNumber, maxCardsPerPlayer);
+  
+  console.log(`📋 Distribution: ${cardsPerPlayer} cartes par joueur (demandé: ${roundNumber}, possible: ${maxCardsPerPlayer}, joueurs: ${players.length}, paquet: ${shuffled.length} cartes)`);
   
   let cardIndex = 0;
   
@@ -129,7 +136,7 @@ function dealCards(deck, players, roundNumber) {
   
   return {
     players: updatedPlayers,
-    remainingDeck: shuffled.slice(cardIndex)
+    actualCardsDealt: cardsPerPlayer
   };
 }
 
@@ -993,7 +1000,17 @@ function setupGameSocketHandlers(io) {
                 // Deal new cards
                 const dealResult = dealCards(gameState.deck, gameState.players, gameState.currentRound.number);
                 gameState.players = dealResult.players;
-                gameState.deck = dealResult.remainingDeck;
+                
+                // Check if we had to adjust the number of cards dealt
+                if (dealResult.actualCardsDealt < gameState.currentRound.number) {
+                  console.log(`⚠️ Round ${gameState.currentRound.number}: Adjusted cards per player from ${gameState.currentRound.number} to ${dealResult.actualCardsDealt} due to deck limitations`);
+                  
+                  // Send warning notification to all players
+                  sendToastNotification(io, roomId, 'warning', 
+                    `Manche ${gameState.currentRound.number}: Nombre de cartes ajusté à ${dealResult.actualCardsDealt} par joueur (paquet insuffisant)`, 
+                    '⚠️ Ajustement automatique'
+                  );
+                }
               }
               
               // Reset current trick regardless
@@ -1205,9 +1222,20 @@ async function handleStartGame(gameState, player, io, roomId) {
   // Deal cards for the first round
   const dealResult = dealCards(gameState.deck, gameState.players, gameState.currentRound.number);
   gameState.players = dealResult.players;
-  gameState.deck = dealResult.remainingDeck;
+  
+  // Check if we had to adjust the number of cards dealt
+  if (dealResult.actualCardsDealt < gameState.currentRound.number) {
+    console.log(`⚠️ Adjusted cards per player from ${gameState.currentRound.number} to ${dealResult.actualCardsDealt} due to deck limitations`);
+    
+    // Send warning notification to all players
+    sendToastNotification(io, roomId, 'warning', 
+      `Nombre de cartes ajusté à ${dealResult.actualCardsDealt} par joueur (paquet insuffisant pour ${gameState.currentRound.number} cartes)`, 
+      '⚠️ Ajustement automatique'
+    );
+  }
+  
   console.log(`🚀 Game started in room ${gameState.roomId} by ${player.username}`);
-  console.log(`📋 Round ${gameState.currentRound.number} started, each player gets ${gameState.currentRound.number} card(s)`);
+  console.log(`📋 Round ${gameState.currentRound.number} started, each player gets ${dealResult.actualCardsDealt} card(s)`);
   
   // Send toast notification to all players about game start
   sendToastNotification(io, roomId, 'success', 
