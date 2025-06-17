@@ -12,16 +12,23 @@ export default function UsernameForm({ onUsernameSubmit }: UsernameFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const validateUsername = (name: string): string | null => {
+    if (!name.trim()) return "Le nom d'utilisateur est requis";
+    if (name.length < 3) return "Le nom d'utilisateur doit faire au moins 3 caractères";
+    if (name.length > 16) return "Le nom d'utilisateur ne doit pas dépasser 16 caractères";
+    if (!/^[a-zA-Z0-9_\-]+$/.test(name)) return "Le nom d'utilisateur ne doit contenir que des lettres, chiffres, tirets ou underscores";
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim()) {
-      setError('Le nom d\'utilisateur est requis');
+    const validationError = validateUsername(username);
+    if (validationError) {
+      setError(validationError);
       return;
     }
-
     setIsLoading(true);
     setError('');
-
     try {
       // Vérifier la disponibilité du nom d'utilisateur
       const checkResult = await UserService.checkUsername(username.trim());
