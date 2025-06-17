@@ -53,3 +53,4 @@ logs/
 package-lock.json
 .vscode/
 dist/
+*.db

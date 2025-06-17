@@ -352,7 +352,10 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                   {gameState.roomStatus !== 'LOBBY' && (
                     <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                       <div>
-                        Pari: {player.bid !== null ? `${player.bid}` : '⏳'} | 
+                        Pari: {(
+                          gameState.gamePhase === 'BIDDING' &&
+                          gameState.players.some(p => p.bid === null)
+                        ) ? '⏳' : (player.bid !== null ? `${player.bid}` : '⏳')} | 
                         Plis: {player.tricksWon}
                       </div>
                     </div>
@@ -610,7 +613,9 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                       >
                         <span className="font-medium">{player.username}:</span>
                         <span className={player.bid !== null ? 'text-green-700 dark:text-green-300' : 'text-orange-600 dark:text-orange-400'}>
-                          {player.bid !== null ? `${player.bid} pli(s)` : '⏳ En cours...'}
+                          {(
+                            gameState.players.some(p => p.bid === null)
+                          ) ? '⏳ En cours...' : (player.bid !== null ? `${player.bid} pli(s)` : '⏳ En cours...')}
                         </span>
                       </div>
                     ))}
