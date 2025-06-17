@@ -19,7 +19,7 @@ export class SkullKingEngine {
   /**
    * Deal cards for a specific round
    */
-  static dealCards(deck: Card[], players: Player[], roundNumber: number): { players: Player[], remainingDeck: Card[] } {
+  static dealCards(deck: Card[], players: Player[], roundNumber: number): { players: Player[], actualCardsDealt: number } {
     return dealCards(deck, players, roundNumber);
   }
 
@@ -72,7 +72,7 @@ export class SkullKingEngine {
    * Start a new round
    */
   static startRound(gameState: SkullKingGameState, roundNumber: number): SkullKingGameState {
-    const { players, remainingDeck } = this.dealCards(gameState.deck, gameState.players, roundNumber);
+    const { players } = this.dealCards(gameState.deck, gameState.players, roundNumber);
     
     // Reset player states for new round
     const resetPlayers = players.map(player => ({
@@ -99,7 +99,7 @@ export class SkullKingEngine {
       players: resetPlayers,
       currentRound: newRound,
       gamePhase: 'BIDDING',
-      deck: remainingDeck,
+      deck: gameState.deck, // Keep the existing deck
       updatedAt: new Date()
     };
   }
