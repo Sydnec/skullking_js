@@ -54,12 +54,12 @@ export default function Chat({ user, onSendMessage, messages }: ChatProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 h-full flex flex-col">
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 h-full max-h-[600px] flex flex-col">
       {/* Header */}
       <h2 className="text-base font-semibold mb-2 text-gray-900 dark:text-white flex-shrink-0">Chat</h2>
       
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto mb-3 space-y-1 min-h-0 bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+      <div className="flex-1 overflow-y-auto mb-3 space-y-1 min-h-0 max-h-[400px] bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
         {messages.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center text-xs">Aucun message pour le moment...</p>
         ) : (

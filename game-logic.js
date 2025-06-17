@@ -987,10 +987,8 @@ function setupGameSocketHandlers(io) {
                 
                 console.log(`🔄 Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
                 
-                // Create a new deck for the round if it doesn't exist
-                if (!gameState.deck) {
-                  gameState.deck = createDeck();
-                }
+                // Create a fresh new deck for each round
+                gameState.deck = createDeck();
                 
                 // Deal new cards
                 const dealResult = dealCards(gameState.deck, gameState.players, gameState.currentRound.number);
@@ -1201,10 +1199,8 @@ async function handleStartGame(gameState, player, io, roomId) {
     player.capturedCards = [];
   });
   
-  // Create a new deck for the game if it doesn't exist
-  if (!gameState.deck) {
-    gameState.deck = createDeck();
-  }
+  // Create a fresh new deck for the game
+  gameState.deck = createDeck();
   
   // Deal cards for the first round
   const dealResult = dealCards(gameState.deck, gameState.players, gameState.currentRound.number);
