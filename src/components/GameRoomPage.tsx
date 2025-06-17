@@ -39,6 +39,36 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
     setLoading(false);
   }, [mounted]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    const checkAndRestoreUser = async () => {
+      const lastUsername = localStorage.getItem('lastUsername');
+      const lastUserId = localStorage.getItem('lastUserId');
+      if (lastUsername && lastUserId) {
+        try {
+          // Vérifier si l'utilisateur existe côté serveur
+          const response = await fetch(`/api/users/${lastUserId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.user && data.user.username === lastUsername) {
+              setUser({ id: lastUserId, username: lastUsername, isOnline: true });
+              setLoading(false);
+              return;
+            }
+          }
+          // Si l'utilisateur n'existe plus, nettoyer le localStorage
+          localStorage.removeItem('lastUsername');
+          localStorage.removeItem('lastUserId');
+        } catch {
+          localStorage.removeItem('lastUsername');
+          localStorage.removeItem('lastUserId');
+        }
+      }
+      setLoading(false);
+    };
+    checkAndRestoreUser();
+  }, [mounted]);
+
   // No automatic redirect - allow user to login directly from room page
 
   const handleLogin = (userData: User) => {

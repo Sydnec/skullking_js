@@ -18,8 +18,9 @@ const GAME_CONFIG = {
   DEFAULT_ROUNDS: 10,
   CARD_DECK_SIZE: 70,
   SAVE_INTERVAL: 60000, // 1 minute
-  CLEANUP_DELAY: 30000, // 30 seconds
-  RECONNECTION_TIMEOUT: 300000 // 5 minutes
+  CLEANUP_DELAY: 600000, // 10 minutes
+  RECONNECTION_TIMEOUT: 1800000, // 30 minutes
+  TRICK_DISPLAY_DELAY: 4000 // 4 seconds - Time to show completed trick before moving to next
 };
 
 // Scoring constants
@@ -1035,7 +1036,7 @@ function setupGameSocketHandlers(io) {
             
             // Send the resolved game state
             io.to(roomId).emit('game-updated', gameState);
-          }, 2000);
+          }, GAME_CONFIG.TRICK_DISPLAY_DELAY); // Use the constant for display delay
         } else {
           // For other actions, send updated game state immediately
           io.to(roomId).emit('game-updated', gameState);
