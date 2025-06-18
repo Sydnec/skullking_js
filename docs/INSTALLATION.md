@@ -1,12 +1,13 @@
 # 🚀 Installation & Lancement
 
-Guide complet pour installer et déployer Skull King.
+Guide complet pour installer et déployer Skull King avec l'architecture séparée backend/frontend.
 
 ## Prérequis
 
 - **Node.js** 18+ 
 - **npm** ou **yarn**
 - **Git** pour cloner le repository
+- **PostgreSQL** (pour la production)
 
 ## 🛠️ Installation
 
@@ -19,15 +20,34 @@ cd skullking_js
 
 ### 2. Installation des dépendances
 
+#### Backend
 ```bash
+cd backend/
+npm install
+npx prisma generate
+npx prisma db push
+```
+
+#### Frontend
+```bash
+cd ../frontend/
 npm install
 ```
 
-### 3. Configuration de la base de données
+### 3. Configuration des variables d'environnement
 
+#### Backend (.env)
 ```bash
-npx prisma generate
-npx prisma db push
+cd ../backend/
+cp .env.example .env
+# Éditer .env avec vos configurations
+```
+
+#### Frontend (.env.local)
+```bash
+cd ../frontend/
+echo "NEXT_PUBLIC_API_URL=http://localhost:3001" > .env.local
+echo "NEXT_PUBLIC_SOCKET_URL=http://localhost:3001" >> .env.local
 ```
 
 ### 4. Configuration des variables d'environnement

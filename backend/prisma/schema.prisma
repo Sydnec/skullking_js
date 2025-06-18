@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+  // Pour la production, vous pouvez utiliser PostgreSQL :
+  // provider = "postgresql"
+  // url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  isOnline  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  hostedRooms Room[] @relation("RoomHost")
+  playerRooms RoomPlayer[]
+
+  @@map("users")
+}
+
+model Room {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  name        String?
+  hostId      String
+  maxPlayers  Int        @default(6)
+  status      RoomStatus @default(WAITING)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  host        User         @relation("RoomHost", fields: [hostId], references: [id], onDelete: Cascade)
+  players     RoomPlayer[]
+  gameStates  GameState[]
+
+  @@map("rooms")
+}
+
+model RoomPlayer {
+  id     String @id @default(cuid())
+  userId String
+  roomId String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roomId])
+  @@map("room_players")
+}
+
+model GameState {
+  id        String   @id @default(cuid())
+  roomId    String   @unique
+  state     String   // JSON serialized game state
+  round     Int      @default(1)
+  phase     String   @default("LOBBY")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("game_states")
+}
+
+enum RoomStatus {
+  WAITING
+  PLAYING
+  FINISHED
+}
