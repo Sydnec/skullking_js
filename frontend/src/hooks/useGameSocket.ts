@@ -79,7 +79,7 @@ export function useGameSocket({
       joinAttemptRef.current = false; // Reset join attempt flag
     });
 
-    socketInstance.on("disconnect", (reason: string) => {
+    socketInstance.on("disconnect", () => {
       setConnected(false);
       setHasJoined(false); // Reset join status on disconnect
       joinAttemptRef.current = false; // Reset join attempt flag
@@ -100,7 +100,7 @@ export function useGameSocket({
 
     socketInstance.on(
       "player-left",
-      (data: { userId: string; username: string }) => {
+      () => {
       }
     );
     socketInstance.on(
