@@ -5,6 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { setupGameSocketHandlers } from './src/game/game-logic.js';
 import { setupApiRoutes } from './src/api/routes.js';
+import { logger } from './src/utils/logger.js';
 
 // Load environment variables
 dotenv.config();
@@ -18,7 +19,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Validate environment variables in production
 if (NODE_ENV === 'production' && !process.env.DATABASE_URL) {
-  console.error('❌ DATABASE_URL environment variable is required in production');
+  logger.error('DATABASE_URL environment variable is required in production');
   process.exit(1);
 }
 
@@ -68,14 +69,14 @@ const io = new SocketIOServer(server, {
   allowEIO3: true
 });
 
-console.log('🔌 Socket.IO server initialized');
+logger.socket('Socket.IO server initialized');
 
 // Setup game logic handlers
 setupGameSocketHandlers(io);
 
 // Error handling middleware
 app.use((err, _req, res, next) => {
-  console.error('❌ Error:', err);
+  logger.error('Express middleware error:', { error: err.message });
   res.status(500).json({ 
     error: NODE_ENV === 'production' ? 'Internal Server Error' : err.message 
   });
@@ -88,16 +89,16 @@ app.use('*', (_req, res) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Backend server ready on http://0.0.0.0:${PORT}`);
-  console.log(`📊 Environment: ${NODE_ENV}`);
-  console.log(`🗄️  Database: ${process.env.DATABASE_URL || 'Not configured'}`);
+  logger.success(`Backend server ready on http://0.0.0.0:${PORT}`);
+  logger.info(`Environment: ${NODE_ENV}`);
+  logger.database(`Database: ${process.env.DATABASE_URL || 'Not configured'}`);
 });
 
 // Graceful shutdown handling
 const gracefulShutdown = (signal) => {
-  console.log(`🛑 ${signal} received, shutting down gracefully`);
+  logger.warn(`${signal} received, shutting down gracefully`);
   server.close(() => {
-    console.log('✅ Server closed');
+    logger.success('Server closed');
     process.exit(0);
   });
 };

@@ -1,4 +1,5 @@
 import { prisma } from '../database/prisma.js';
+import { logger } from '../utils/logger.js';
 
 // Store active games in memory (with database persistence)
 const activeGames = new Map();
@@ -119,7 +120,7 @@ function dealCards(deck, players, roundNumber) {
   // Use the minimum between the requested round number and what's actually possible
   const cardsPerPlayer = Math.min(roundNumber, maxCardsPerPlayer);
   
-  console.log(`📋 Distribution: ${cardsPerPlayer} cartes par joueur (demandé: ${roundNumber}, possible: ${maxCardsPerPlayer}, joueurs: ${players.length}, paquet: ${shuffled.length} cartes)`);
+  logger.game(`Card distribution: ${cardsPerPlayer} cards per player (requested: ${roundNumber}, possible: ${maxCardsPerPlayer}, players: ${players.length}, deck: ${shuffled.length} cards)`);
   
   let cardIndex = 0;
   
@@ -245,19 +246,7 @@ function isValidPlay(card, trick, playerHand) {
   return true;
 }
 
-// Enhanced logging
-const logWithTimestamp = (level, message, data = {}) => {
-  const timestamp = new Date().toISOString();
-  const prefix = {
-    info: '📋',
-    success: '✅',
-    error: '❌',
-    warn: '⚠️',
-    debug: '🔍'
-  }[level] || '📝';
-  
-  console.log(`${prefix} [${timestamp}] ${message}`, Object.keys(data).length > 0 ? data : '');
-};
+// Enhanced logging - supprimé car remplacé par le logger centralisé
 
 // Database persistence functions
 async function saveGameState(roomCode, gameState) {
@@ -268,7 +257,7 @@ async function saveGameState(roomCode, gameState) {
     });
 
     if (!room) {
-      logWithTimestamp('warn', `Room ${roomCode} not found in database, skipping save`);
+      logger.warn(`Room ${roomCode} not found in database, skipping save`);
       return;
     }
 
@@ -294,12 +283,12 @@ async function saveGameState(roomCode, gameState) {
       }
     });
 
-    logWithTimestamp('success', `Game state saved for room ${roomCode}`, {
+    logger.success(`Game state saved for room ${roomCode}`, {
       round: gameData.round,
       players: gameState.players?.length || 0
     });
   } catch (error) {
-    logWithTimestamp('error', `Error saving game state for room ${roomCode}`, { error: error.message });
+    logger.error(`Error saving game state for room ${roomCode}`, { error: error.message });
   }
 }
 
@@ -318,7 +307,7 @@ async function loadGameState(roomCode) {
     });
 
     if (!room) {
-      console.log(`⚠️ Room ${roomCode} not found in database`);
+      logger.warn(`Room ${roomCode} not found in database`);
       return null;
     }
 
@@ -329,13 +318,13 @@ async function loadGameState(roomCode) {
 
     if (gameData && gameData.state) {
       const savedState = JSON.parse(gameData.state);
-      console.log(`📁 Loaded game state for room ${roomCode} (Round ${gameData.round})`);
+      logger.database(`Loaded game state for room ${roomCode} (Round ${gameData.round})`);
       return savedState;
     }
 
     return null;
   } catch (error) {
-    console.error(`❌ Error loading game state for room ${roomCode}:`, error);
+    logger.error(`Error loading game state for room ${roomCode}`, { error: error.message });
     return null;
   }
 }
@@ -348,17 +337,17 @@ async function deleteGameState(roomCode) {
     });
 
     if (!room) {
-      console.log(`⚠️ Room ${roomCode} not found in database`);
+      logger.warn(`Room ${roomCode} not found in database`);
       return;
     }
 
     await prisma.gameState.deleteMany({
       where: { roomId: room.id }
     });
-    console.log(`🗑️ Game state deleted for room ${roomCode}`);
+    logger.success(`Game state deleted for room ${roomCode}`);
   } catch (error) {
     if (error.code !== 'P2025') { // P2025 = Record not found
-      console.error(`❌ Error deleting game state for room ${roomCode}:`, error);
+      logger.error(`Error deleting game state for room ${roomCode}`, { error: error.message });
     }
   }
 }
@@ -368,13 +357,13 @@ function startPeriodicSave() {
   setInterval(async () => {
     if (activeGames.size === 0) return;
     
-    logWithTimestamp('info', `Starting periodic save for ${activeGames.size} active games`);
+    logger.info(`Starting periodic save for ${activeGames.size} active games`);
     const savePromises = [];
     
     for (const [roomId, gameState] of activeGames.entries()) {
       savePromises.push(
         saveGameState(roomId, gameState).catch(error => 
-          logWithTimestamp('error', `Periodic save failed for room ${roomId}`, { error: error.message })
+          logger.error(`Periodic save failed for room ${roomId}`, { error: error.message })
         )
       );
     }
@@ -519,13 +508,13 @@ function calculateRoundScores(players, roundNumber) {
 
 // Socket.IO game handlers
 function setupGameSocketHandlers(io) {
-  logWithTimestamp('info', 'Setting up Socket.IO game handlers...');
+  logger.info('Setting up Socket.IO game handlers...');
   
   // Start periodic save
   startPeriodicSave();
   
   io.on('connection', (socket) => {
-    logWithTimestamp('info', `User connected: ${socket.id}`);
+    logger.socket(`User connected: ${socket.id}`);
     
     // Enhanced error handling wrapper
     const handleSocketAction = (eventName, handler) => {
@@ -533,7 +522,7 @@ function setupGameSocketHandlers(io) {
         try {
           await handler(...args);
         } catch (error) {
-          logWithTimestamp('error', `Socket ${eventName} error`, {
+          logger.error(`Socket ${eventName} error`, {
             socketId: socket.id,
             error: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -548,7 +537,7 @@ function setupGameSocketHandlers(io) {
       });
     };    handleSocketAction('join-game', async (data) => {
       const { roomId, userId, username, forceSpectator = false } = data;
-      logWithTimestamp('info', `User ${username} (${userId}) joining room ${roomId}${forceSpectator ? ' as spectator' : ''}`, { socketId: socket.id });
+      logger.socket(`User ${username} (${userId}) joining room ${roomId}${forceSpectator ? ' as spectator' : ''}`, { socketId: socket.id });
       
       // Validate input data
       if (!roomId || !userId || !username) {
@@ -572,11 +561,11 @@ function setupGameSocketHandlers(io) {
       if (existingUserIndex >= 0) {
         // Update existing user's socket ID (reconnection case)
         users[existingUserIndex].socketId = socket.id;
-        console.log(`🔄 Updated socket ID for existing user ${username}`);
+        logger.socket(`Updated socket ID for existing user ${username}`);
       } else {
         // Add new user
         users.push({ id: userId, username, socketId: socket.id });
-        console.log(`➕ Added new user ${username} to room ${roomId}`);
+        logger.socket(`Added new user ${username} to room ${roomId}`);
       }        // Create or update game state
       if (!activeGames.has(roomId)) {
         // Try to load existing game state from database
@@ -584,7 +573,7 @@ function setupGameSocketHandlers(io) {
         
         if (savedGameState) {
           // Restore game from database
-          console.log(`🔄 Restoring game state for room ${roomId}`);
+          logger.game(`Restoring game state for room ${roomId}`);
           
           // Update player online status for reconnected users
           savedGameState.players.forEach(player => {
@@ -594,15 +583,15 @@ function setupGameSocketHandlers(io) {
             
             if (userById) {
               player.isOnline = true;
-              console.log(`🔄 Player ${player.username} matched by userId: ${player.id}`);
+              logger.socket(`Player ${player.username} matched by userId: ${player.id}`);
             } else if (userByName) {
               // Update player's userId if they reconnected with different userId
-              console.log(`🔄 Player ${player.username} matched by username, updating userId from ${player.id} to ${userByName.id}`);
+              logger.socket(`Player ${player.username} matched by username, updating userId from ${player.id} to ${userByName.id}`);
               player.id = userByName.id;
               player.isOnline = true;
             } else {
               player.isOnline = false;
-              console.log(`😴 Player ${player.username} not online`);
+              logger.socket(`Player ${player.username} not online`);
             }
           });
           
@@ -616,7 +605,7 @@ function setupGameSocketHandlers(io) {
             if (!existingPlayerById && !existingPlayerByName && !existingSpectatorById && !existingSpectatorByName) {
               if (savedGameState.roomStatus === 'LOBBY' && !forceSpectator) {
                 // Only allow new players to join if game is still in lobby and not forcing spectator
-                console.log(`➕ Adding completely new player ${user.username} to restored game`);
+                logger.game(`Adding completely new player ${user.username} to restored game`);
                 savedGameState.players.push({
                   id: user.id,
                   username: user.username,
@@ -630,7 +619,7 @@ function setupGameSocketHandlers(io) {
               } else {
                 // Game already started or user wants to be spectator, add as spectator
                 const reason = forceSpectator ? 'user requested spectator mode' : 'game already started';
-                console.log(`👀 Adding ${user.username} as spectator to restored game (${reason})`);
+                logger.game(`Adding ${user.username} as spectator to restored game (${reason})`);
                 if (!savedGameState.spectators) {
                   savedGameState.spectators = [];
                 }
@@ -690,46 +679,46 @@ function setupGameSocketHandlers(io) {
         
         // Only log and emit if it's actually a new game
         if (!savedGameState) {
-          console.log(`🎲 Created new lobby for room ${roomId} with creator ${username}`);
+          logger.game(`Created new lobby for room ${roomId} with creator ${username}`);
           // Notify all clients that a new room has been created
           io.emit('room-list-updated', { 
             action: 'room-created',
             roomId: roomId 
           });
         } else {
-          console.log(`🔄 Restored existing game for room ${roomId}`);
+          logger.game(`Restored existing game for room ${roomId}`);
         }
       } else {        // Update existing game state
         const gameState = activeGames.get(roomId);
         
-        console.log(`🔍 Checking if ${username} (${userId}) is an existing player in active game...`);
-        console.log(`📋 Current players in game: ${gameState.players.map(p => `${p.username}(${p.id}, online:${p.isOnline})`).join(', ')}`);
+        logger.debug(`Checking if ${username} (${userId}) is an existing player in active game...`);
+        logger.debug(`Current players in game: ${gameState.players.map(p => `${p.username}(${p.id}, online:${p.isOnline})`).join(', ')}`);
         
         // Check if this player was already in the game (by userId or username)
         const existingPlayerIndex = gameState.players.findIndex(p => p.id === userId);
         const existingPlayerByUsername = gameState.players.find(p => p.username === username);
         
-        console.log(`🔍 DEBUG - Looking for player: userId=${userId}, username=${username}`);
-        console.log(`🔍 DEBUG - Existing players: ${gameState.players.map(p => `${p.username}(id:${p.id})`).join(', ')}`);
-        console.log(`🔍 DEBUG - Found by ID: ${existingPlayerIndex >= 0}, Found by username: ${!!existingPlayerByUsername}`);
+        logger.debug(`Looking for player: userId=${userId}, username=${username}`);
+        logger.debug(`Existing players: ${gameState.players.map(p => `${p.username}(id:${p.id})`).join(', ')}`);
+        logger.debug(`Found by ID: ${existingPlayerIndex >= 0}, Found by username: ${!!existingPlayerByUsername}`);
         
         if (existingPlayerIndex >= 0) {
           // Player reconnecting with same userId - allow reconnection
-          console.log(`🔄 Player ${username} reconnecting to room ${roomId} (same userId)`);
+          logger.socket(`Player ${username} reconnecting to room ${roomId} (same userId)`);
           gameState.players[existingPlayerIndex].isOnline = true;
         } else if (existingPlayerByUsername) {
           // Player reconnecting with different userId but same username - update userId
-          console.log(`🔄 Player ${username} reconnecting to room ${roomId} (updating userId from ${existingPlayerByUsername.id} to ${userId})`);
+          logger.socket(`Player ${username} reconnecting to room ${roomId} (updating userId from ${existingPlayerByUsername.id} to ${userId})`);
           existingPlayerByUsername.id = userId;
           existingPlayerByUsername.isOnline = true;
         } else {
           // This is a completely new player
-          console.log(`❓ ${username} not found in existing players list`);
+          logger.debug(`${username} not found in existing players list`);
           
           // Check if user wants to force spectator mode or if game has already started
           if (forceSpectator || gameState.roomStatus === 'GAME_STARTED') {
             const reason = forceSpectator ? 'user requested spectator mode' : 'game already started';
-            console.log(`🎭 Adding ${username} as spectator to room ${roomId} (${reason})`);
+            logger.game(`Adding ${username} as spectator to room ${roomId} (${reason})`);
             
             // Initialize spectators array if it doesn't exist
             if (!gameState.spectators) {
@@ -745,10 +734,10 @@ function setupGameSocketHandlers(io) {
                 isOnline: true,
                 joinedAt: new Date()
               });
-              console.log(`👀 Added ${username} as spectator to room ${roomId}`);
+              logger.game(`Added ${username} as spectator to room ${roomId}`);
             } else {
               existingSpectator.isOnline = true;
-              console.log(`🔄 Spectator ${username} reconnected to room ${roomId}`);
+              logger.socket(`Spectator ${username} reconnected to room ${roomId}`);
             }
             
             // Send spectator join confirmation
@@ -778,9 +767,9 @@ function setupGameSocketHandlers(io) {
               isOnline: true,
               captureEvents: []
             });
-            console.log(`➕ Added new player ${username} to lobby ${roomId}`);
+            logger.game(`Added new player ${username} to lobby ${roomId}`);
           } else {
-            console.log(`❌ Cannot add new player to game in progress`);
+            logger.warn(`Cannot add new player to game in progress`);
             socket.emit('join-rejected', { 
               reason: 'Game in progress',
               message: 'Impossible de rejoindre une partie en cours.'
@@ -792,14 +781,14 @@ function setupGameSocketHandlers(io) {
 
       // Send current game state to all players in room
       const gameState = activeGames.get(roomId);
-      console.log(`📤 Sending game state to room ${roomId}:`, {
+      logger.socket(`Sending game state to room ${roomId}`, {
         playersCount: gameState.players.length,
         gamePhase: gameState.gamePhase
       });
       
       // Send chat history to the joining user FIRST
       const chatHistory = roomChatMessages.get(roomId) || [];
-      console.log(`📨 Sending chat history to ${username}: ${chatHistory.length} messages`);
+      logger.socket(`Sending chat history to ${username}: ${chatHistory.length} messages`);
       socket.emit('chat_history', chatHistory);
       
       // Send join confirmation to the joining user
@@ -810,7 +799,7 @@ function setupGameSocketHandlers(io) {
       io.to(roomId).emit('player-joined', { userId, username });
     });    socket.on('leave-game', (data) => {
       const { roomId, userId } = data;
-      console.log(`User ${userId} leaving room ${roomId}`);
+      logger.socket(`User ${userId} leaving room ${roomId}`);
       
       socket.leave(roomId);
       
@@ -830,7 +819,7 @@ function setupGameSocketHandlers(io) {
           if (playerIndex >= 0) {
             // Mark player as offline instead of removing them
             gameState.players[playerIndex].isOnline = false;
-            console.log(`🔌 Player ${gameState.players[playerIndex].username} marked as offline`);
+            logger.socket(`Player ${gameState.players[playerIndex].username} marked as offline`);
           }
           
           // Also check if user was a spectator
@@ -838,7 +827,7 @@ function setupGameSocketHandlers(io) {
           if (spectatorIndex !== undefined && spectatorIndex >= 0) {
             // Mark spectator as offline
             gameState.spectators[spectatorIndex].isOnline = false;
-            console.log(`👀 Spectator ${gameState.spectators[spectatorIndex].username} marked as offline`);
+            logger.socket(`Spectator ${gameState.spectators[spectatorIndex].username} marked as offline`);
             
             // Notify room about spectator leaving
             io.to(roomId).emit('spectator-left', { userId, username: gameState.spectators[spectatorIndex].username });
@@ -847,7 +836,7 @@ function setupGameSocketHandlers(io) {
           // If no online players left, clean up the game
           const onlinePlayers = gameState.players.filter(p => p.isOnline);
           if (onlinePlayers.length === 0) {
-            console.log(`🗑️ No online players left in room ${roomId}, cleaning up`);
+            logger.game(`No online players left in room ${roomId}, cleaning up`);
             activeGames.delete(roomId);
             roomUsers.delete(roomId);
           } else {
@@ -858,7 +847,7 @@ function setupGameSocketHandlers(io) {
       }
     });    socket.on('delete-room', async (data) => {
       const { roomId, userId } = data;
-      console.log(`User ${userId} attempting to delete room ${roomId}`);
+      logger.socket(`User ${userId} attempting to delete room ${roomId}`);
       
       if (activeGames.has(roomId)) {
         const gameState = activeGames.get(roomId);
@@ -869,19 +858,19 @@ function setupGameSocketHandlers(io) {
           return;
         }
         
-        console.log(`🗑️ Room ${roomId} being deleted by creator`);
+        logger.game(`Room ${roomId} being deleted by creator`);
         
         try {
           // Delete from database first
           await prisma.room.delete({
             where: { code: roomId }
           });
-          console.log(`🗄️ Room ${roomId} deleted from database`);
+          logger.database(`Room ${roomId} deleted from database`);
           
           // Delete game state from database
           await deleteGameState(roomId);
         } catch (error) {
-          console.error(`❌ Error deleting room ${roomId} from database:`, error);
+          logger.error(`Error deleting room ${roomId} from database`, { error: error.message });
           // Continue with in-memory cleanup even if database deletion fails
         }
           // Notify all players that the room is being deleted
@@ -899,9 +888,9 @@ function setupGameSocketHandlers(io) {
         activeGames.delete(roomId);
         roomUsers.delete(roomId);
         
-        console.log(`✅ Room ${roomId} successfully deleted`);
+        logger.success(`Room ${roomId} successfully deleted`);
       } else {
-        console.log(`⚠️ Room ${roomId} not found in active games, trying database deletion only`);
+        logger.warn(`Room ${roomId} not found in active games, trying database deletion only`);
         
         try {
           // Try to delete from database even if not in memory
@@ -912,7 +901,7 @@ function setupGameSocketHandlers(io) {
           if (room && room.hostId === userId) {            await prisma.room.delete({
               where: { code: roomId }
             });
-            console.log(`🗄️ Room ${roomId} deleted from database (not in memory)`);
+            logger.database(`Room ${roomId} deleted from database (not in memory)`);
             
             // Delete game state from database
             await deleteGameState(roomId);
@@ -930,14 +919,14 @@ function setupGameSocketHandlers(io) {
             socket.emit('error', 'Room not found or you are not the creator');
           }
         } catch (error) {
-          console.error(`❌ Error deleting room ${roomId}:`, error);
+          logger.error(`Error deleting room ${roomId}`, { error: error.message });
           socket.emit('error', 'Error deleting room');
         }
       }
     });
       socket.on('gameAction', async (data) => {
       const { type, payload, playerId, roomId } = data;
-      console.log(`Game action: ${type} from player ${playerId} in room ${roomId}`, payload);
+      logger.game(`Game action: ${type} from player ${playerId} in room ${roomId}`, payload);
       
       const gameState = activeGames.get(roomId);
       if (!gameState) {
@@ -958,11 +947,11 @@ function setupGameSocketHandlers(io) {
         } else if (type === 'BID') {
           actionResult = handleBid(gameState, player, payload.bid);
         } else if (type === 'PLAY_CARD') {
-          console.log(`🔍 DEBUG gameAction: payload =`, payload);
+          logger.debug(`gameAction payload:`, payload);
           actionResult = handlePlayCard(gameState, player, payload.cardId, payload.tigressChoice);
         }        // Check if action returned an error (for validation errors)
         if (actionResult && actionResult.error) {
-          console.log(`⚠️ Action ${type} validation error:`, actionResult.error);
+          logger.warn(`Action ${type} validation error: ${actionResult.error}`);
           
           // Send toast notification only to the player who made the error
           socket.emit('toast-notification', {
@@ -974,7 +963,7 @@ function setupGameSocketHandlers(io) {
         }
         
         // Send updated game state to all players
-        console.log(`🎮 Game state after ${type}:`, {
+        logger.game(`Game state after ${type}`, {
           gamePhase: gameState.gamePhase,
           currentPlayerId: gameState.currentRound?.currentPlayerId,
           playingPhase: gameState.currentRound?.playingPhase,
@@ -986,7 +975,7 @@ function setupGameSocketHandlers(io) {
         
         // If this was a card play that completed a trick, handle special display logic
         if (type === 'PLAY_CARD' && actionResult && actionResult.trickWinner) {
-          console.log(`🎯 Trick completed by ${actionResult.trickWinner.playerName}, showing complete trick for 1 second...`);
+          logger.game(`Trick completed by ${actionResult.trickWinner.playerName}, showing complete trick for display delay...`);
           
           // First, send the game state with the complete trick visible
           io.to(roomId).emit('game-updated', gameState);
@@ -1002,7 +991,7 @@ function setupGameSocketHandlers(io) {
 
           // Wait 2 seconds before resetting the current trick and sending the resolved game state
           setTimeout(async () => {
-            console.log(`🎯 Resetting current trick and sending resolved game state after display delay`);
+            logger.game(`Resetting current trick and sending resolved game state after display delay`);
             
             // Now move the completed trick to history
             const completedTrick = { ...gameState.currentRound.currentTrick };
@@ -1026,9 +1015,9 @@ function setupGameSocketHandlers(io) {
                     where: { code: roomId },
                     data: { status: 'FINISHED' }
                   });
-                  console.log(`🏁 Room ${roomId} status updated to FINISHED in database`);
+                  logger.database(`Room ${roomId} status updated to FINISHED in database`);
                 } catch (error) {
-                  console.error(`❌ Error updating room status to FINISHED for ${roomId}:`, error);
+                  logger.error(`Error updating room status to FINISHED for ${roomId}`, { error: error.message });
                 }
               } else {
                 // Start next round
@@ -1050,7 +1039,7 @@ function setupGameSocketHandlers(io) {
                   p.capturedCards = [];
                 });
                 
-                console.log(`🔄 Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
+                logger.game(`Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
                 
                 // Create a fresh new deck for each round
                 gameState.deck = createDeck();
@@ -1061,7 +1050,7 @@ function setupGameSocketHandlers(io) {
                 
                 // Check if we had to adjust the number of cards dealt
                 if (dealResult.actualCardsDealt < gameState.currentRound.number) {
-                  console.log(`⚠️ Round ${gameState.currentRound.number}: Adjusted cards per player from ${gameState.currentRound.number} to ${dealResult.actualCardsDealt} due to deck limitations`);
+                  logger.warn(`Round ${gameState.currentRound.number}: Adjusted cards per player from ${gameState.currentRound.number} to ${dealResult.actualCardsDealt} due to deck limitations`);
                   
                   // Send warning notification to all players
                   sendToastNotification(io, roomId, 'warning', 
@@ -1099,7 +1088,7 @@ function setupGameSocketHandlers(io) {
           io.to(roomId).emit('game-updated', gameState);
         }
       } catch (error) {
-        console.error('Error handling game action:', error);
+        logger.error('Error handling game action', { error: error.message, type, playerId, roomId });
         socket.emit('game-error', { 
           type: 'SERVER_ERROR',
           message: 'Une erreur serveur est survenue. Veuillez réessayer.',
@@ -1112,7 +1101,7 @@ function setupGameSocketHandlers(io) {
     handleSocketAction('chat-message', async (data) => {
       const { roomId, userId, username, message } = data;
       
-      console.log(`💬 Chat message received from ${username} in room ${roomId}: "${message}"`);
+      logger.socket(`Chat message received from ${username} in room ${roomId}: "${message}"`);
       
       if (roomId && userId && username && message) {
         const chatMessage = {
@@ -1130,25 +1119,25 @@ function setupGameSocketHandlers(io) {
         messages.push(chatMessage);
         roomChatMessages.set(roomId, messages);
 
-        console.log(`💬 Broadcasting message to room ${roomId}, now has ${messages.length} messages`);
+        logger.socket(`Broadcasting message to room ${roomId}, now has ${messages.length} messages`);
 
         // Emit message to all users in room
         io.to(roomId).emit('chat-message', chatMessage);
 
-        console.log(`💬 Message from ${username} in room ${roomId}: ${message}`);
+        logger.socket(`Message from ${username} in room ${roomId}: ${message}`);
       } else {
-        console.log(`⚠️ Invalid chat message data:`, data);
+        logger.warn(`Invalid chat message data`, data);
       }
     });
       socket.on('disconnect', () => {
-      console.log('👋 User disconnected:', socket.id);
+      logger.socket(`User disconnected: ${socket.id}`);
       
       // Find and handle cleanup for disconnected users
       for (const [roomId, users] of roomUsers.entries()) {
         const userIndex = users.findIndex(u => u.socketId === socket.id);
         if (userIndex >= 0) {
           const user = users[userIndex];
-          console.log(`🧹 Cleaning up disconnected user ${user.username} (${user.id}) from room ${roomId}`);
+          logger.socket(`Cleaning up disconnected user ${user.username} (${user.id}) from room ${roomId}`);
           
           // Remove user from room tracking (immediate cleanup)
           users.splice(userIndex, 1);
@@ -1171,17 +1160,17 @@ function setupGameSocketHandlers(io) {
             
             // Save game state after player disconnection
             saveGameState(roomId, gameState).catch(err => 
-              console.error(`Error saving game state on disconnect:`, err)
+              logger.error(`Error saving game state on disconnect`, { error: err.message, roomId })
             );
             
             // If no users left in room, clean up the game after a delay
             if (users.length === 0) {
-              console.log(`🗑️ No users left in room ${roomId}, scheduling cleanup`);
+              logger.game(`No users left in room ${roomId}, scheduling cleanup`);
               setTimeout(async () => {
                 // Double-check that room is still empty
                 const currentUsers = roomUsers.get(roomId);
                 if (!currentUsers || currentUsers.length === 0) {
-                  console.log(`🗑️ Cleaning up empty room ${roomId}`);
+                  logger.game(`Cleaning up empty room ${roomId}`);
                   activeGames.delete(roomId);
                   roomUsers.delete(roomId);
                   // Don't delete from database here - keep for potential future reconnections
@@ -1249,9 +1238,9 @@ async function handleStartGame(gameState, player, io, roomId) {
       where: { code: roomId },
       data: { status: 'PLAYING' }
     });
-    console.log(`📊 Room ${roomId} status updated to PLAYING in database`);
+    logger.database(`Room ${roomId} status updated to PLAYING in database`);
   } catch (error) {
-    console.error(`❌ Error updating room status for ${roomId}:`, error);
+    logger.error(`Error updating room status for ${roomId}`, { error: error.message });
   }
   
   // Initialize the first round
@@ -1289,7 +1278,7 @@ async function handleStartGame(gameState, player, io, roomId) {
   
   // Check if we had to adjust the number of cards dealt
   if (dealResult.actualCardsDealt < gameState.currentRound.number) {
-    console.log(`⚠️ Adjusted cards per player from ${gameState.currentRound.number} to ${dealResult.actualCardsDealt} due to deck limitations`);
+    logger.warn(`Adjusted cards per player from ${gameState.currentRound.number} to ${dealResult.actualCardsDealt} due to deck limitations`);
     
     // Send warning notification to all players
     sendToastNotification(io, roomId, 'warning', 
@@ -1298,8 +1287,8 @@ async function handleStartGame(gameState, player, io, roomId) {
     );
   }
   
-  console.log(`🚀 Game started in room ${gameState.roomId} by ${player.username}`);
-  console.log(`📋 Round ${gameState.currentRound.number} started, each player gets ${dealResult.actualCardsDealt} card(s)`);
+  logger.game(`Game started in room ${gameState.roomId} by ${player.username}`);
+  logger.game(`Round ${gameState.currentRound.number} started, each player gets ${dealResult.actualCardsDealt} card(s)`);
   
   // Send toast notification to all players about game start
   sendToastNotification(io, roomId, 'success', 
@@ -1327,13 +1316,13 @@ function handleBid(gameState, player, bid) {
   player.bid = bid;
   player.isReady = true;
   
-  console.log(`💰 Player ${player.username} bid ${bid} tricks for round ${gameState.currentRound.number}`);
+  logger.game(`Player ${player.username} bid ${bid} tricks for round ${gameState.currentRound.number}`);
   
   // Check if all players have bid
   const allPlayersReady = gameState.players.every(p => p.isReady);
   const bidsPlaced = gameState.players.filter(p => p.bid !== null).length;
   
-  console.log(`📊 Bidding progress: ${bidsPlaced}/${gameState.players.length} players have bid`);
+  logger.game(`Bidding progress: ${bidsPlaced}/${gameState.players.length} players have bid`);
   
   if (allPlayersReady) {
     gameState.gamePhase = 'PLAYING';
@@ -1345,9 +1334,9 @@ function handleBid(gameState, player, bid) {
     gameState.currentRound.playingPhase = true;
     
     // The dealer (currentPlayerId) starts the first trick of the round
-    console.log(`🎯 All bids received! Moving to PLAYING phase`);
-    console.log(`📋 Final bids: ${gameState.players.map(p => `${p.username}: ${p.bid}`).join(', ')}`);
-    console.log(`🎮 First player to play: ${gameState.players.find(p => p.id === gameState.currentRound.currentPlayerId)?.username}`);
+    logger.game(`All bids received! Moving to PLAYING phase`);
+    logger.game(`Final bids: ${gameState.players.map(p => `${p.username}: ${p.bid}`).join(', ')}`);
+    logger.game(`First player to play: ${gameState.players.find(p => p.id === gameState.currentRound.currentPlayerId)?.username}`);
   }
   
   return { success: true };
@@ -1394,8 +1383,8 @@ function handlePlayCard(gameState, player, cardId, tigressChoice = null) {
     return { error: validation.reason };
   }
   
-  console.log(`🔍 DEBUG: tigressChoice = "${tigressChoice}", card.type = "${card.type}"`);
-  console.log(`🃏 ${player.username} plays ${card.name}${card.type === 'TIGRESS' ? ` as ${tigressChoice}` : ''}`);
+  logger.debug(`tigressChoice = "${tigressChoice}", card.type = "${card.type}"`);
+  logger.game(`${player.username} plays ${card.name}${card.type === 'TIGRESS' ? ` as ${tigressChoice}` : ''}`);
   
   // Remove card from player's hand immediately when played
   player.cards = player.cards.filter(c => c.id !== cardId);
@@ -1418,7 +1407,7 @@ function handlePlayCard(gameState, player, cardId, tigressChoice = null) {
   const nextPlayerIndex = (currentPlayerIndex + 1) % gameState.players.length;
   gameState.currentRound.currentPlayerId = gameState.players[nextPlayerIndex].id;
   
-  console.log(`➡️ Next player: ${gameState.players[nextPlayerIndex].username}`);
+  logger.game(`Next player: ${gameState.players[nextPlayerIndex].username}`);
   
   // Check if trick is complete (all players have played)
   if (gameState.currentRound.currentTrick.cards.length === gameState.players.length) {
@@ -1439,9 +1428,9 @@ function handlePlayCard(gameState, player, cardId, tigressChoice = null) {
 function resolveTrickInGameState(gameState) {
   const trick = gameState.currentRound.currentTrick;
   
-  console.log(`🔍 Resolving trick with ${trick.cards.length} cards:`);
+  logger.game(`Resolving trick with ${trick.cards.length} cards:`);
   trick.cards.forEach((playedCard, index) => {
-    console.log(`  ${index + 1}. ${playedCard.card.name} (${playedCard.card.type})${playedCard.tigressChoice ? ` as ${playedCard.tigressChoice}` : ''}`);
+    logger.game(`  ${index + 1}. ${playedCard.card.name} (${playedCard.card.type})${playedCard.tigressChoice ? ` as ${playedCard.tigressChoice}` : ''}`);
   });
   
   // Identify special cards
@@ -1456,7 +1445,7 @@ function resolveTrickInGameState(gameState) {
     (c.card.type === 'TIGRESS' && c.tigressChoice === 'ESCAPE')
   );
   
-  console.log(`📊 Special cards: SK:${skullKingCards.length}, Mermaids:${mermaidCards.length}, Pirates:${pirateCards.length}, Escapes:${escapeCards.length}`);
+  logger.game(`Special cards: SK:${skullKingCards.length}, Mermaids:${mermaidCards.length}, Pirates:${pirateCards.length}, Escapes:${escapeCards.length}`);
   
   let winner;
   let reason;
@@ -1552,7 +1541,7 @@ function resolveTrickInGameState(gameState) {
     }
   }
   
-  console.log(`🏆 Winner: ${winner.card.name} (${reason})`);
+  logger.game(`Winner: ${winner.card.name} (${reason})`);
   
   // Award trick to winner
   const winningPlayer = gameState.players.find(p => p.id === winner.playerId);
@@ -1568,10 +1557,10 @@ function resolveTrickInGameState(gameState) {
     const trickCards = trick.cards.map(entry => entry.card);
     winningPlayer.capturedCards.push(...trickCards);
     
-    console.log(`📦 ${winningPlayer.username} captured ${trickCards.length} cards: ${trickCards.map(c => c.name).join(', ')}`);
+    logger.game(`${winningPlayer.username} captured ${trickCards.length} cards: ${trickCards.map(c => c.name).join(', ')}`);
   }
   
-  console.log(`🏆 ${winningPlayer.username} wins the trick!`);
+  logger.game(`${winningPlayer.username} wins the trick!`);
   
   // Set the winner for the current trick but DON'T move it to history yet
   // It will be moved after the display delay
@@ -1591,7 +1580,7 @@ function resolveTrickInGameState(gameState) {
   // Winner of the trick leads the next trick
   gameState.currentRound.currentPlayerId = winner.playerId;
   
-  console.log(`🃏 ${winningPlayer.username} leads the next trick`);
+  logger.game(`${winningPlayer.username} leads the next trick`);
   
   // Round completion logic is now handled in the setTimeout after display delay
   

@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../database/prisma.js';
 import { isValidUsername } from '../utils/validation.js';
+import { logger } from '../utils/logger.js';
 
 export const usersRouter = express.Router();
 
@@ -24,7 +25,7 @@ usersRouter.get('/', async (req, res) => {
       username: username.trim()
     });
   } catch (error) {
-    console.error('Erreur lors de la vérification du nom d\'utilisateur:', error);
+    logger.error('Error checking username availability', { error: error.message });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -71,7 +72,7 @@ usersRouter.post('/', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur lors de la création de l\'utilisateur:', error);
+    logger.error('Error creating user', { error: error.message });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -99,9 +100,9 @@ usersRouter.get('/:id', async (req, res) => {
       });
     }
 
-    res.json({ user });
+    res.json({ user    });
   } catch (error) {
-    console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+    logger.error('Error getting user by ID', { error: error.message, userId: req.params.id });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -125,9 +126,9 @@ usersRouter.patch('/:id', async (req, res) => {
       data: { isOnline }
     });
 
-    res.json({ user });
+    res.json({ user    });
   } catch (error) {
-    console.error('Erreur lors de la mise à jour du statut:', error);
+    logger.error('Error updating user status', { error: error.message, userId: req.params.id });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -212,7 +213,7 @@ usersRouter.delete('/:id', async (req, res) => {
       roomsCleaned: Array.from(roomsToCheck).length
     });
   } catch (error) {
-    console.error('Erreur lors de la déconnexion:', error);
+    logger.error('Error during user logout', { error: error.message, userId: req.params.id });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -242,7 +243,7 @@ usersRouter.post('/disconnect', async (req, res) => {
     const result = await deleteResponse.json();
     res.json(result);
   } catch (error) {
-    console.error('Erreur lors de la déconnexion beacon:', error);
+    logger.error('Error handling beacon logout', { error: error.message });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });

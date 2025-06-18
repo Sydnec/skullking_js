@@ -1,4 +1,4 @@
-import { PrismaClient } from '../../prisma/generated/prisma/index.js';
+import { PrismaClient } from '@prisma/client';
 
 // Initialize Prisma client with error handling
 export const prisma = new PrismaClient({

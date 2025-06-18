@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../database/prisma.js';
 import { isValidRoomCode, generateRoomCode } from '../utils/validation.js';
+import { logger } from '../utils/logger.js';
 
 export const roomsRouter = express.Router();
 
@@ -45,7 +46,7 @@ roomsRouter.get('/', async (req, res) => {
 
     res.json({ rooms: formattedRooms });
   } catch (error) {
-    console.error('Erreur lors de la récupération des rooms:', error);
+    logger.error('Error fetching rooms', { error: error.message });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -97,7 +98,7 @@ roomsRouter.get('/:code', async (req, res) => {
 
     res.json(formattedRoom);
   } catch (error) {
-    console.error('Erreur lors de la récupération de la room:', error);
+    logger.error('Error fetching room by code', { error: error.message, code: req.params.code });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -181,7 +182,7 @@ roomsRouter.post('/', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur lors de la création de la room:', error);
+    logger.error('Error creating room', { error: error.message });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -233,7 +234,7 @@ roomsRouter.get('/:code', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur lors de la récupération de la room:', error);
+    logger.error('Error fetching room details', { error: error.message, code: req.params.code });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -341,7 +342,7 @@ roomsRouter.post('/:code/join', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur lors de la jonction à la room:', error);
+    logger.error('Error joining room', { error: error.message, code: req.params.code, userId: req.body.userId });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
@@ -429,7 +430,7 @@ roomsRouter.delete('/:code', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Erreur lors de la sortie de la room:', error);
+    logger.error('Error leaving room', { error: error.message, code: req.params.code, userId: req.body.userId });
     res.status(500).json({
       error: 'Erreur interne du serveur'
     });
