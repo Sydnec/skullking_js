@@ -41,6 +41,25 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
   });// Store the leaveGame function in ref to avoid dependency issues
   leaveGameRef.current = leaveGame;
 
+  // Function to copy room link to clipboard
+  const handleCopyRoomLink = async () => {
+    try {
+      const roomUrl = `${window.location.origin}/${roomId}`;
+      await navigator.clipboard.writeText(roomUrl);
+      showSuccess('Lien de la room copié dans le presse-papiers !', 'Lien copié');
+    } catch {
+      // Fallback for browsers that don't support clipboard API
+      const roomUrl = `${window.location.origin}/${roomId}`;
+      const textArea = document.createElement('textarea');
+      textArea.value = roomUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showSuccess('Lien de la room copié dans le presse-papiers !', 'Lien copié');
+    }
+  };
+
   useEffect(() => {
     // Only leave the game when component actually unmounts (page navigation)
     return () => {
@@ -297,23 +316,33 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                 `Round ${currentRound?.number || 1} - ${getGamePhaseText(gameState.gamePhase)}`
               )}
             </p>
-          </div>          <div className="flex items-center gap-3">
+          </div>          <div className="flex items-center gap-2 md:gap-3">
+            <button
+              onClick={handleCopyRoomLink}
+              className="px-2 md:px-3 py-1.5 text-xs md:text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-1"
+              title="Copier le lien de la room"
+            >
+              <span className="hidden sm:inline">📋 Copier le lien</span>
+              <span className="sm:hidden">📋</span>
+            </button>
             <div className={`text-xs ${connected ? 'text-green-600' : 'text-red-600'}`}>
               {connected ? '🟢 Connecté' : '🔴 Déconnecté'}
             </div>
             {currentPlayer?.id === gameState.creatorId ? (
               <button
                 onClick={handleDeleteRoom}
-                className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+                className="px-2 md:px-3 py-1.5 text-xs md:text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
               >
-                🗑️ Supprimer la room
+                <span className="hidden sm:inline">🗑️ Supprimer la room</span>
+                <span className="sm:hidden">🗑️</span>
               </button>
             ) : (
               <button
                 onClick={handleLeaveRoom}
-                className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors"
+                className="px-2 md:px-3 py-1.5 text-xs md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors"
               >
-                Quitter
+                <span className="hidden sm:inline">Quitter</span>
+                <span className="sm:hidden">❌</span>
               </button>
             )}
           </div>
