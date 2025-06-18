@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import GameRoomPage from '../../components/GameRoomPage';
 
 interface PageProps {
@@ -10,7 +10,7 @@ export default async function RoomPage({ params }: PageProps) {
   
   // Validate room code format
   if (!roomCode || roomCode.length !== 6) {
-    notFound();
+    redirect('/');
   }
 
   // Check if room exists via API
@@ -21,7 +21,7 @@ export default async function RoomPage({ params }: PageProps) {
     
     if (!response.ok) {
       if (response.status === 404) {
-        notFound();
+        redirect('/');
       }
       throw new Error('Failed to fetch room data');
     }
@@ -29,7 +29,7 @@ export default async function RoomPage({ params }: PageProps) {
     const room = await response.json();
 
     if (!room) {
-      notFound();
+      redirect('/');
     }
     
     const roomData = {
@@ -47,7 +47,7 @@ export default async function RoomPage({ params }: PageProps) {
     return <GameRoomPage roomData={roomData} />;
   } catch (error) {
     console.error('Error fetching room:', error);
-    notFound();
+    redirect('/');
   }
 }
 

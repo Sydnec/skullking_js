@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Room, User } from '@/lib/api';
+import { saveUserToStorage } from '@/lib/user-persistence';
 import GameRoom from './GameRoom';
 import UsernameForm from './UsernameForm';
 
@@ -80,6 +81,10 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
 
 
   const handleLeaveRoom = () => {
+    // S'assurer que les données utilisateur sont bien sauvegardées avant la redirection
+    if (user) {
+      saveUserToStorage(user);
+    }
     router.push('/');
   };
   // If not mounted yet, show loading to prevent hydration mismatch

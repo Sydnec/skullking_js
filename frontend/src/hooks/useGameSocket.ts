@@ -118,9 +118,21 @@ export function useGameSocket({
       (data: { reason: string; message: string }) => {
         console.log("Join rejected:", data);
         showError(data.message, "Impossible de rejoindre la partie");
-        // Optionally redirect back to lobby
+        
+        // S'assurer que les données utilisateur sont préservées avant la redirection
+        const lastUsername = localStorage.getItem('lastUsername');
+        const lastUserId = localStorage.getItem('lastUserId');
+        
+        // Redirect back to lobby after a delay
         setTimeout(() => {
-          window.location.href = "/";
+          if (typeof window !== 'undefined') {
+            // Restore user data if it exists
+            if (lastUsername && lastUserId) {
+              localStorage.setItem('lastUsername', lastUsername);
+              localStorage.setItem('lastUserId', lastUserId);
+            }
+            window.location.href = "/";
+          }
         }, 2000);
       }
     );
@@ -128,10 +140,22 @@ export function useGameSocket({
     socketInstance.on("room-deleted", (data: { message: string }) => {
       console.log("Room deleted:", data);
       showWarning(data.message, "Salle supprimée");
-      // Redirect back to home
+      
+      // S'assurer que les données utilisateur sont préservées avant la redirection
+      const lastUsername = localStorage.getItem('lastUsername');
+      const lastUserId = localStorage.getItem('lastUserId');
+      
+      // Redirect back to home with shorter delay
       setTimeout(() => {
-        window.location.href = "/";
-      }, 2000);
+        if (typeof window !== 'undefined') {
+          // Restore user data if it exists
+          if (lastUsername && lastUserId) {
+            localStorage.setItem('lastUsername', lastUsername);
+            localStorage.setItem('lastUserId', lastUserId);
+          }
+          window.location.href = "/";
+        }
+      }, 1000); // Reduced delay to 1 second
     });
     socketInstance.on(
       "game-error",

@@ -5,6 +5,7 @@ import { User } from '@/lib/api';
 import { Player, Card } from '@/types/skull-king';
 import { useGameSocket } from '@/hooks/useGameSocket';
 import { useToast } from './ToastProvider';
+import { saveUserToStorage } from '@/lib/user-persistence';
 import ConfirmDialog from './ConfirmDialog';
 import CardImage from './CardImage';
 import Scoreboard from './Scoreboard';
@@ -107,8 +108,14 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
   };
 
   const confirmDeleteRoom = () => {
+    // S'assurer que les données utilisateur sont sauvegardées
+    saveUserToStorage(user);
+    
     deleteRoom();
     setShowDeleteConfirm(false);
+    
+    // Appeler onLeaveRoom pour déclencher la redirection
+    onLeaveRoom();
   };
 
   const cancelDeleteRoom = () => {
@@ -117,6 +124,9 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
 
   const handleLeaveRoom = () => {
     if (!gameState || !currentPlayer) return;
+    
+    // Sauvegarder les données utilisateur avant toute action
+    saveUserToStorage(user);
     
     if (currentPlayer.id === gameState.creatorId) {
       // Creator should delete the room, not just leave
@@ -270,6 +280,9 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
     );
     
     const handleReturnToLobby = () => {
+      // Sauvegarder les données utilisateur avant toute action
+      saveUserToStorage(user);
+      
       // Si l'utilisateur est le créateur de la room, supprimer la room
       // Sinon, juste quitter la room
       if (currentPlayer?.id === gameState.creatorId) {
