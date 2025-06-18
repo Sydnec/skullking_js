@@ -192,7 +192,7 @@ update_function() {
 
     # Redémarrage
     print_step "Redémarrage de l'application..."
-    pm2 restart skullking-backend || pm2 start ecosystem.config.js --env production
+    pm2 restart skullking-backend || pm2 start ecosystem.config.cjs --env production
     pm2 save
 
     # Vérification finale
@@ -251,7 +251,7 @@ case "$1" in
         validate_project_directory
         echo "🚀 Démarrage de Skull King Backend..."
         cd "$BACKEND_DIR"
-        pm2 start ecosystem.config.js --env production 2>/dev/null || {
+        pm2 start ecosystem.config.cjs --env production 2>/dev/null || {
             print_warning "Processus déjà en cours, tentative de redémarrage..."
             pm2 restart skullking-backend
         }
@@ -274,7 +274,7 @@ case "$1" in
         cd "$BACKEND_DIR"
         pm2 restart skullking-backend 2>/dev/null || {
             print_warning "Processus non trouvé, démarrage..."
-            pm2 start ecosystem.config.js --env production
+            pm2 start ecosystem.config.cjs --env production
         }
         pm2 save
         sleep 2
@@ -341,7 +341,7 @@ case "$1" in
         # Démarrage du backend avec PM2
         print_step "Démarrage du backend avec PM2..."
         cd "$BACKEND_DIR"
-        pm2 start ecosystem.config.js --env production
+        pm2 start ecosystem.config.cjs --env production
 
         # Sauvegarde de la configuration PM2
         print_step "Sauvegarde de la configuration PM2..."
@@ -420,7 +420,7 @@ case "$1" in
         # Démarrage du backend avec PM2
         print_step "Démarrage du backend avec PM2..."
         cd "$BACKEND_DIR"
-        pm2 start ecosystem.config.js --env production
+        pm2 start ecosystem.config.cjs --env production
 
         # Sauvegarde de la configuration PM2
         print_step "Sauvegarde de la configuration PM2..."
@@ -506,7 +506,7 @@ case "$1" in
 
             # Redémarrage
             print_step "Redémarrage de l'application..."
-            pm2 start ecosystem.config.js --env production
+            pm2 start ecosystem.config.cjs --env production
             pm2 save
             
             sleep 2

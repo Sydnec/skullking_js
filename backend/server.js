@@ -25,7 +25,7 @@ if (NODE_ENV === 'production' && !process.env.DATABASE_URL) {
 // CORS configuration
 const corsOptions = {
   origin: NODE_ENV === 'production' 
-    ? process.env.ALLOWED_ORIGINS?.split(',') || ['https://skullking.vercel.app']
+    ? process.env.ALLOWED_ORIGINS?.split(',') || ['https://skullking-pcr.vercel.app']
     : ['http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -74,7 +74,7 @@ console.log('🔌 Socket.IO server initialized');
 setupGameSocketHandlers(io);
 
 // Error handling middleware
-app.use((err, _req, res) => {
+app.use((err, _req, res, next) => {
   console.error('❌ Error:', err);
   res.status(500).json({ 
     error: NODE_ENV === 'production' ? 'Internal Server Error' : err.message 

@@ -1,4 +1,5 @@
-export default {
+// Version CommonJS pour compatibilité PM2
+module.exports = {
   apps: [{
     name: 'skullking-backend',
     script: './server.js',
