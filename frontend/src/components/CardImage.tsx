@@ -76,8 +76,9 @@ export default function CardImage({ card, className = '', onClick, isPlayable = 
         <Image
           src={cardImagePath}
           alt={altText}
-          fill
-          className="object-cover rounded-lg shadow-md"
+          width={112}
+          height={160}
+          className="object-cover rounded-lg shadow-md w-full h-full"
           sizes="(max-width: 768px) 100px, 150px"
         />
         

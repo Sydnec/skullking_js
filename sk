@@ -6,13 +6,8 @@
 # Auto-détection du répertoire du projet
 # Si le script est dans /usr/local/bin, on utilise le répertoire courant
 # Sinon, on utilise le répertoire du script
-if [[ "${BASH_SOURCE[0]}" == "/usr/local/bin/sk" ]]; then
-    PROJECT_DIR="$(pwd)"
-else
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    PROJECT_DIR="$SCRIPT_DIR"
-fi
 
+PROJECT_DIR="/home/sydnec/skullking_js"
 BACKEND_DIR="$PROJECT_DIR/backend"
 FRONTEND_DIR="$PROJECT_DIR/frontend"
 LOG_DIR="$BACKEND_DIR/logs"

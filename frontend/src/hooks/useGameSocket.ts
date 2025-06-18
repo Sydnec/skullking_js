@@ -62,7 +62,6 @@ export function useGameSocket({
         ? "https://skullking-api.duckdns.org" // Backend auto-hébergé sur Raspberry Pi
         : `http://localhost:3001`; // Backend port
 
-    console.log("Connecting to socket at:", socketUrl || "same origin");
 
     // Initialize socket connection
     const socketInstance = io(socketUrl, {
@@ -75,30 +74,25 @@ export function useGameSocket({
       rememberUpgrade: false, // Don't remember failed websocket upgrade
     });
     socketInstance.on("connect", () => {
-      console.log("Connected to socket server with ID:", socketInstance.id);
       setConnected(true);
       setHasJoined(false); // Reset join status on new connection
       joinAttemptRef.current = false; // Reset join attempt flag
     });
 
     socketInstance.on("disconnect", (reason: string) => {
-      console.log("Disconnected from socket server, reason:", reason);
       setConnected(false);
       setHasJoined(false); // Reset join status on disconnect
       joinAttemptRef.current = false; // Reset join attempt flag
     });
 
     socketInstance.on("game-updated", (newGameState: SkullKingGameState) => {
-      console.log("Game state updated:", newGameState);
       setGameState(newGameState);
     });
     socketInstance.on(
       "player-joined",
       (data: { userId: string; username: string }) => {
-        console.log("Player joined:", data);
         // Set hasJoined to true if this is our user joining
         if (data.userId === userId) {
-          console.log("Confirmed: We have successfully joined the game");
           setHasJoined(true);
         }
       }
@@ -107,13 +101,11 @@ export function useGameSocket({
     socketInstance.on(
       "player-left",
       (data: { userId: string; username: string }) => {
-        console.log("Player left:", data);
       }
     );
     socketInstance.on(
       "join-success",
       (data: { gameState: SkullKingGameState; isSpectator?: boolean; spectatorId?: string }) => {
-        console.log("Join success confirmed:", data);
         setHasJoined(true);
         joinAttemptRef.current = false; // Reset for potential future rejoins
         setGameState(data.gameState);
@@ -130,7 +122,6 @@ export function useGameSocket({
     socketInstance.on(
       "join-rejected",
       (data: { reason: string; message: string }) => {
-        console.log("Join rejected:", data);
         showError(data.message, "Impossible de rejoindre la partie");
         
         // S'assurer que les données utilisateur sont préservées avant la redirection
@@ -152,7 +143,6 @@ export function useGameSocket({
     );
 
     socketInstance.on("room-deleted", (data: { message: string }) => {
-      console.log("Room deleted:", data);
       showWarning(data.message, "Salle supprimée");
       
       // S'assurer que les données utilisateur sont préservées avant la redirection
@@ -174,7 +164,6 @@ export function useGameSocket({
     socketInstance.on(
       "game-error",
       (data: { type: string; message: string; action: string }) => {
-        console.log("Game error received:", data);
         // Display error message to user
         showError(data.message, "Erreur de jeu");
       }
@@ -183,7 +172,6 @@ export function useGameSocket({
     socketInstance.on(
       "player-joined",
       (data: { userId: string; username: string }) => {
-        console.log("Player joined:", data);
         // Show notification when another player joins
         showInfo(`${data.username} a rejoint la partie`, "Nouveau joueur");
       }
@@ -191,7 +179,6 @@ export function useGameSocket({
     socketInstance.on(
       "player-left",
       (data: { userId: string; username: string }) => {
-        console.log("Player left:", data);
         // Show notification when a player leaves
         showWarning(`${data.username} a quitté la partie`, "Joueur parti");
       }
@@ -201,7 +188,6 @@ export function useGameSocket({
     socketInstance.on(
       "spectator-joined",
       (data: { userId: string; username: string }) => {
-        console.log("Spectator joined:", data);
         showInfo(`👀 ${data.username} observe maintenant la partie`, "Nouveau spectateur");
       }
     );
@@ -209,7 +195,6 @@ export function useGameSocket({
     socketInstance.on(
       "spectator-left",
       (data: { userId: string; username: string }) => {
-        console.log("Spectator left:", data);
         showInfo(`👀 ${data.username} a arrêté d'observer la partie`, "Spectateur parti");
       }
     );
@@ -222,7 +207,6 @@ export function useGameSocket({
         title?: string;
         duration?: number;
       }) => {
-        console.log("Toast notification received:", data);
         // Show toast notification from server
         switch (data.type) {
           case "success":
@@ -248,7 +232,6 @@ export function useGameSocket({
         winner: { playerId: string; playerName: string };
         completedTrick: unknown;
       }) => {
-        console.log("Trick completed:", data);
         // Emit a custom event that the GameRoom component can listen to
         window.dispatchEvent(
           new CustomEvent("trickCompleted", { detail: data })
@@ -291,9 +274,6 @@ export function useGameSocket({
       userId &&
       username
     ) {
-      console.log(
-        `Auto-joining game room: ${roomId} as ${username} (${userId})`
-      );
       joinAttemptRef.current = true; // Prevent multiple join attempts
 
       // Add a small delay to prevent immediate rejoin after disconnect
@@ -308,7 +288,6 @@ export function useGameSocket({
   }, [socket, connected, hasJoined, roomId, userId, username, forceSpectator]);
   const joinGame = useCallback(() => {
     if (socket && connected && !hasJoined && !joinAttemptRef.current) {
-      console.log(`Manually joining game room: ${roomId} as ${username}`);
       joinAttemptRef.current = true;
       socket.emit("join-game", { roomId, userId, username, forceSpectator });
     }
@@ -316,7 +295,6 @@ export function useGameSocket({
 
   const leaveGame = useCallback(() => {
     if (socket && connected && hasJoined) {
-      console.log(`Leaving game room: ${roomId}`);
       socket.emit("leave-game", { roomId, userId });
       setHasJoined(false);
     }
@@ -350,7 +328,6 @@ export function useGameSocket({
 
   const deleteRoom = useCallback(() => {
     if (socket && connected) {
-      console.log(`Deleting room: ${roomId}`);
       socket.emit("delete-room", { roomId, userId });
       setHasJoined(false);
     }
