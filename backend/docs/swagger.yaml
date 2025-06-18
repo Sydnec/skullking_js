@@ -1,0 +1,788 @@
+openapi: 3.0.3
+info:
+  title: Skull King Backend API
+  description: |
+    API REST pour le jeu Skull King - Backend Node.js avec Express et Socket.IO
+    
+    ## À propos de l'API
+    
+    Cette API fournit les endpoints pour gérer les utilisateurs et les salles de jeu du jeu Skull King. 
+    La logique de jeu en temps réel est gérée via WebSocket (Socket.IO).
+    
+    ## Authentification
+    
+    Aucune authentification n'est requise actuellement. L'identification se fait via des IDs d'utilisateur générés lors de la création.
+    
+    ## WebSocket
+    
+    Les interactions de jeu en temps réel (démarrage de partie, enchères, jeu de cartes) utilisent Socket.IO sur le même port que l'API REST.
+    
+    Voir la documentation complète dans `/docs/GAME_LOGIC.md`
+  version: 1.0.0
+  contact:
+    name: Skull King Backend
+    url: https://github.com/your-repo/skullking
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Serveur de développement
+  - url: https://your-production-domain.com
+    description: Serveur de production
+
+tags:
+  - name: health
+    description: Vérification de l'état du serveur
+  - name: users
+    description: Gestion des utilisateurs
+  - name: rooms
+    description: Gestion des salles de jeu
+
+paths:
+  /health:
+    get:
+      tags:
+        - health
+      summary: Vérifier l'état du serveur
+      description: Endpoint de santé pour monitoring et load balancers
+      responses:
+        '200':
+          description: Serveur en bon état
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          description: Serveur en erreur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthErrorResponse'
+
+  /api/users:
+    get:
+      tags:
+        - users
+      summary: Vérifier la disponibilité d'un nom d'utilisateur
+      description: Vérifie si un nom d'utilisateur est disponible avant la création
+      parameters:
+        - name: username
+          in: query
+          required: true
+          description: Nom d'utilisateur à vérifier
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 20
+            pattern: '^[a-zA-Z0-9_-]+$'
+          example: PlayerOne
+      responses:
+        '200':
+          description: Vérification réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsernameAvailabilityResponse'
+        '400':
+          description: Nom d'utilisateur invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - users
+      summary: Créer un nouvel utilisateur
+      description: Crée un nouvel utilisateur avec un nom unique
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '200':
+          description: Utilisateur créé avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Nom d'utilisateur invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Nom d'utilisateur déjà pris
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/{id}:
+    get:
+      tags:
+        - users
+      summary: Récupérer un utilisateur par ID
+      description: Obtient les informations d'un utilisateur spécifique
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID unique de l'utilisateur (CUID)
+          schema:
+            type: string
+          example: clx1234567890abcdef
+      responses:
+        '200':
+          description: Utilisateur trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: Utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - users
+      summary: Déconnecter et nettoyer un utilisateur
+      description: |
+        Supprime un utilisateur et nettoie automatiquement les salles vides. 
+        Cette action retire l'utilisateur de toutes ses salles et supprime les salles qui deviennent vides.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID unique de l'utilisateur (CUID)
+          schema:
+            type: string
+          example: clx1234567890abcdef
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisconnectUserRequest'
+      responses:
+        '200':
+          description: Utilisateur déconnecté avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisconnectResponse'
+        '400':
+          description: ID utilisateur manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags:
+        - users
+      summary: Marquer un utilisateur comme hors ligne
+      description: Met à jour le statut de connexion d'un utilisateur sans le supprimer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID unique de l'utilisateur (CUID)
+          schema:
+            type: string
+          example: clx1234567890abcdef
+      responses:
+        '200':
+          description: Statut mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: Utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/disconnect:
+    post:
+      tags:
+        - users
+      summary: Déconnexion via beacon
+      description: |
+        Endpoint spécial pour la déconnexion automatique lors de la fermeture du navigateur.
+        Utilise l'API Navigator.sendBeacon() pour assurer la déconnexion même si la page se ferme brutalement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisconnectUserRequest'
+      responses:
+        '200':
+          description: Déconnexion beacon réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisconnectResponse'
+        '400':
+          description: ID utilisateur manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/rooms:
+    get:
+      tags:
+        - rooms
+      summary: Lister toutes les salles disponibles
+      description: |
+        Récupère la liste de toutes les salles en attente de joueurs ou en cours de partie.
+        Les salles terminées ne sont pas incluses.
+      responses:
+        '200':
+          description: Liste des salles récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomsListResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - rooms
+      summary: Créer une nouvelle salle
+      description: |
+        Crée une nouvelle salle de jeu avec un code unique généré automatiquement.
+        L'utilisateur créateur devient automatiquement l'hôte et rejoint la salle.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomRequest'
+      responses:
+        '200':
+          description: Salle créée avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomResponse'
+        '400':
+          description: Données manquantes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur ou impossible de générer un code unique
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/rooms/{code}:
+    get:
+      tags:
+        - rooms
+      summary: Récupérer les détails d'une salle
+      description: Obtient les informations détaillées d'une salle spécifique
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: Code unique de la salle (6 caractères alphanumériques)
+          schema:
+            type: string
+            pattern: '^[A-Z0-9]{6}$'
+          example: ABC123
+      responses:
+        '200':
+          description: Détails de la salle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomResponse'
+        '400':
+          description: Code de salle invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Salle non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - rooms
+      summary: Rejoindre une salle
+      description: |
+        Permet à un utilisateur de rejoindre une salle existante.
+        La salle doit être en attente (pas encore commencée) et avoir de la place.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: Code unique de la salle (6 caractères alphanumériques)
+          schema:
+            type: string
+            pattern: '^[A-Z0-9]{6}$'
+          example: ABC123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinRoomRequest'
+      responses:
+        '200':
+          description: Salle rejointe avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomResponse'
+        '400':
+          description: |
+            Code invalide, partie déjà commencée, salle complète, ou utilisateur déjà dans la salle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Salle ou utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - rooms
+      summary: Quitter une salle
+      description: |
+        Permet à un utilisateur de quitter une salle. Si l'hôte quitte et qu'il y a d'autres joueurs,
+        l'hôte est transféré au premier joueur. Si la salle devient vide, elle est supprimée.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: Code unique de la salle (6 caractères alphanumériques)
+          schema:
+            type: string
+            pattern: '^[A-Z0-9]{6}$'
+          example: ABC123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeaveRoomRequest'
+      responses:
+        '200':
+          description: Salle quittée avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRoomResponse'
+        '400':
+          description: Code de salle invalide ou ID utilisateur manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Salle non trouvée ou utilisateur pas dans la salle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur interne du serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # Modèles de base
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identifiant unique (CUID)
+          example: clx1234567890abcdef
+        username:
+          type: string
+          description: Nom d'utilisateur unique
+          minLength: 2
+          maxLength: 20
+          pattern: '^[a-zA-Z0-9_-]+$'
+          example: PlayerOne
+        isOnline:
+          type: boolean
+          description: Statut de connexion
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Date de création
+          example: '2025-06-18T10:30:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: Date de dernière mise à jour
+          example: '2025-06-18T10:30:00.000Z'
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Code unique de la salle (6 caractères)
+          pattern: '^[A-Z0-9]{6}$'
+          example: ABC123
+        name:
+          type: string
+          description: Nom de la salle
+          example: Partie de PlayerOne
+        host:
+          type: string
+          description: Nom d'utilisateur de l'hôte
+          example: PlayerOne
+        players:
+          type: array
+          description: Liste des noms d'utilisateur des joueurs
+          items:
+            type: string
+          example: ["PlayerOne", "PlayerTwo"]
+        maxPlayers:
+          type: integer
+          description: Nombre maximum de joueurs
+          minimum: 2
+          maximum: 8
+          default: 6
+          example: 6
+        status:
+          type: string
+          description: Statut de la salle
+          enum: [waiting, playing, finished]
+          example: waiting
+        createdAt:
+          type: string
+          format: date-time
+          description: Date de création
+          example: '2025-06-18T10:30:00.000Z'
+
+    # Requêtes
+    CreateUserRequest:
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          description: Nom d'utilisateur désiré
+          minLength: 2
+          maxLength: 20
+          pattern: '^[a-zA-Z0-9_-]+$'
+          example: PlayerOne
+
+    DisconnectUserRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          description: ID de l'utilisateur à déconnecter
+          example: clx1234567890abcdef
+
+    CreateRoomRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          description: ID de l'utilisateur qui crée la salle
+          example: clx1234567890abcdef
+
+    JoinRoomRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          description: ID de l'utilisateur qui rejoint la salle
+          example: clx1234567890abcdef
+
+    LeaveRoomRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          description: ID de l'utilisateur qui quitte la salle
+          example: clx1234567890abcdef
+
+    # Réponses
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-06-18T10:30:00.000Z'
+        uptime:
+          type: string
+          description: Temps de fonctionnement du serveur
+          example: '3600s'
+        memory:
+          type: object
+          properties:
+            used:
+              type: string
+              description: Mémoire utilisée
+              example: '45MB'
+            total:
+              type: string
+              description: Mémoire totale allouée
+              example: '120MB'
+        environment:
+          type: string
+          description: Environnement de déploiement
+          example: development
+
+    HealthErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [unhealthy]
+          example: unhealthy
+        error:
+          type: string
+          description: Message d'erreur
+          example: Database connection failed
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-06-18T10:30:00.000Z'
+
+    UsernameAvailabilityResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+          description: Indique si le nom d'utilisateur est disponible
+          example: true
+        username:
+          type: string
+          description: Nom d'utilisateur vérifié (trimmed)
+          example: PlayerOne
+
+    UserResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+
+    DisconnectResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Message de confirmation
+          example: Utilisateur déconnecté et nettoyage effectué
+        roomsCleaned:
+          type: integer
+          description: Nombre de salles nettoyées
+          example: 2
+
+    RoomsListResponse:
+      type: object
+      properties:
+        rooms:
+          type: array
+          description: Liste des salles disponibles
+          items:
+            $ref: '#/components/schemas/Room'
+
+    RoomResponse:
+      type: object
+      properties:
+        room:
+          $ref: '#/components/schemas/Room'
+
+    LeaveRoomResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Message de confirmation
+          example: Vous avez quitté la room
+        roomDeleted:
+          type: boolean
+          description: Indique si la salle a été supprimée (salle vide)
+          example: false
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Message d'erreur descriptif
+          example: Nom d'utilisateur invalide
+
+  examples:
+    # Exemples d'utilisateurs
+    NewUser:
+      summary: Nouvel utilisateur
+      value:
+        username: PlayerOne
+
+    ExistingUser:
+      summary: Utilisateur existant
+      value:
+        id: clx1234567890abcdef
+        username: PlayerOne
+        isOnline: true
+        createdAt: '2025-06-18T10:30:00.000Z'
+        updatedAt: '2025-06-18T10:30:00.000Z'
+
+    # Exemples de salles
+    WaitingRoom:
+      summary: Salle en attente
+      value:
+        id: ABC123
+        name: Partie de PlayerOne
+        host: PlayerOne
+        players: ["PlayerOne"]
+        maxPlayers: 6
+        status: waiting
+        createdAt: '2025-06-18T10:30:00.000Z'
+
+    ActiveRoom:
+      summary: Salle avec plusieurs joueurs
+      value:
+        id: ABC123
+        name: Partie rapide
+        host: PlayerOne
+        players: ["PlayerOne", "PlayerTwo", "PlayerThree"]
+        maxPlayers: 6
+        status: waiting
+        createdAt: '2025-06-18T10:30:00.000Z'
+
+    # Exemples d'erreurs
+    ValidationError:
+      summary: Erreur de validation
+      value:
+        error: Nom d'utilisateur invalide
+
+    ConflictError:
+      summary: Conflit de ressource
+      value:
+        error: Ce nom d'utilisateur est déjà pris
+
+    NotFoundError:
+      summary: Ressource non trouvée
+      value:
+        error: Utilisateur non trouvé
+
+    ServerError:
+      summary: Erreur serveur
+      value:
+        error: Erreur interne du serveur

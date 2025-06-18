@@ -5,8 +5,10 @@
 
 # Auto-détection du répertoire du projet
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="/home/sydnec/skullking_js"
-LOG_DIR="$PROJECT_DIR/logs"
+PROJECT_DIR="$SCRIPT_DIR"
+BACKEND_DIR="$PROJECT_DIR/backend"
+FRONTEND_DIR="$PROJECT_DIR/frontend"
+LOG_DIR="$BACKEND_DIR/logs"
 
 # Couleurs
 RED='\033[0;31m'
@@ -40,7 +42,7 @@ print_error() {
 
 # Fonction pour vérifier si l'application est en ligne
 check_app_status() {
-    if pm2 list 2>/dev/null | grep -q "skullking.*online"; then
+    if pm2 list 2>/dev/null | grep -q "skullking-backend.*online"; then
         return 0
     else
         return 1
@@ -56,13 +58,13 @@ monitor_function() {
     
     # 1. Statut PM2
     print_section "Statut PM2"
-    if pm2 list 2>/dev/null | grep -q "skullking"; then
+    if pm2 list 2>/dev/null | grep -q "skullking-backend"; then
         pm2 list
         echo ""
         if check_app_status; then
-            print_success "Application Skull King en ligne"
+            print_success "Backend Skull King en ligne"
         else
-            print_error "Application Skull King hors ligne"
+            print_error "Backend Skull King hors ligne"
         fi
     else
         print_error "Aucun processus PM2 trouvé"
@@ -71,9 +73,9 @@ monitor_function() {
 
     # 2. Test de l'API
     print_section "Test de l'API"
-    if curl -s http://localhost:3000/api/health >/dev/null 2>&1; then
+    if curl -s http://localhost:3001/health >/dev/null 2>&1; then
         print_success "API accessible"
-        echo "Réponse: $(curl -s http://localhost:3000/api/health)"
+        echo "Réponse: $(curl -s http://localhost:3001/health)"
     else
         print_error "API non accessible"
     fi
@@ -88,25 +90,27 @@ monitor_function() {
 
     # 4. Connectivité réseau
     print_section "Connectivité réseau"
-    echo "🌐 IP locale: $(hostname -I | awk '{print $1}')"
-    if ss -tuln | grep -q ":3000 "; then
-        print_success "Port 3000 ouvert et en écoute"
+    echo "🌐 IP locale: $(hostname -I | awk '{print $1}' 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || echo "Non disponible")"
+    if ss -tuln 2>/dev/null | grep -q ":3001 " || netstat -an 2>/dev/null | grep -q ":3001.*LISTEN"; then
+        print_success "Port 3001 (Backend) ouvert et en écoute"
     else
-        print_error "Port 3000 non accessible"
+        print_error "Port 3001 (Backend) non accessible"
     fi
     echo ""
 
     # 5. Logs récents
     print_section "Logs récents (dernières 5 lignes)"
-    pm2 logs skullking --lines 5 --nostream 2>/dev/null || echo "Aucun log disponible"
+    pm2 logs skullking-backend --lines 5 --nostream 2>/dev/null || echo "Aucun log disponible"
     echo ""
 
     # 6. Informations de déploiement
     print_section "Informations de déploiement"
-    if [ -f "$PROJECT_DIR/.next/BUILD_ID" ]; then
-        echo "📅 Dernière mise à jour du build: $(stat -c %y "$PROJECT_DIR/.next/BUILD_ID" 2>/dev/null || echo "Non disponible")"
+    if [ -f "$FRONTEND_DIR/.next/BUILD_ID" ]; then
+        echo "📅 Dernière mise à jour du build frontend: $(stat -c %y "$FRONTEND_DIR/.next/BUILD_ID" 2>/dev/null || stat -f %Sm "$FRONTEND_DIR/.next/BUILD_ID" 2>/dev/null || echo "Non disponible")"
     fi
-    echo "📁 Répertoire: $PROJECT_DIR"
+    echo "📁 Répertoire projet: $PROJECT_DIR"
+    echo "📁 Backend: $BACKEND_DIR"
+    echo "📁 Frontend: $FRONTEND_DIR"
     echo "👤 Utilisateur: $(whoami)"
     echo "🖥️  Hostname: $(hostname)"
     echo ""
@@ -126,37 +130,37 @@ update_function() {
     
     # Sauvegarde des logs
     print_step "Sauvegarde des logs actuels..."
-    if [ -f "./logs/combined.log" ]; then
-        cp ./logs/combined.log "./logs/combined.log.backup.$(date +%Y%m%d_%H%M%S)"
+    if [ -f "$LOG_DIR/combined.log" ]; then
+        cp "$LOG_DIR/combined.log" "$LOG_DIR/combined.log.backup.$(date +%Y%m%d_%H%M%S)"
     fi
 
     # Vérifier et arrêter PM2 si nécessaire
     print_step "📋 Vérification du statut PM2..."
-    if pm2 describe skullking &> /dev/null; then
-        print_step "✅ Processus PM2 'skullking' trouvé"
+    if pm2 describe skullking-backend &> /dev/null; then
+        print_step "✅ Processus PM2 'skullking-backend' trouvé"
         print_step "Arrêt temporaire de l'application..."
-        pm2 stop skullking
+        pm2 stop skullking-backend
     else
-        print_warning "⚠️ Processus PM2 'skullking' non trouvé"
+        print_warning "⚠️ Processus PM2 'skullking-backend' non trouvé"
     fi
 
     # Sauvegarde de la base de données
     print_step "Sauvegarde de la base de données..."
-    if [ -f "./prisma/db/production.db" ]; then
-        cp "./prisma/db/production.db" "./prisma/db/production.db.backup.$(date +%Y%m%d_%H%M%S)"
+    if [ -f "$BACKEND_DIR/prisma/dev.db" ]; then
+        cp "$BACKEND_DIR/prisma/dev.db" "$BACKEND_DIR/prisma/dev.db.backup.$(date +%Y%m%d_%H%M%S)"
     fi
 
     # Git pull
     print_step "Récupération des dernières modifications..."
     git pull origin main || print_warning "Impossible de faire git pull"
 
-    # Installation des dépendances
-    print_step "Installation des dépendances..."
+    # Installation des dépendances backend
+    print_step "Installation des dépendances backend..."
+    cd "$BACKEND_DIR"
     npm i
 
-    # Build de l'application
-    print_step "Construction de l'application..."
-    npm run build
+    # Retour au backend pour Prisma
+    cd "$BACKEND_DIR"
 
     # Génération Prisma
     print_step "Génération du client Prisma..."
@@ -168,14 +172,15 @@ update_function() {
 
     # Redémarrage
     print_step "Redémarrage de l'application..."
-    pm2 restart skullking || pm2 start ecosystem.config.cjs --env production
+    pm2 restart skullking-backend || pm2 start ecosystem.config.js --env production
     pm2 save
 
     # Vérification finale
     sleep 5
     if check_app_status; then
         print_success "🎉 Mise à jour terminée avec succès!"
-        print_success "L'application est en ligne sur http://localhost:3000"
+        print_success "Le backend est en ligne sur http://localhost:3001"
+        print_success "Le frontend peut être déployé séparément"
     else
         print_error "❌ Problème lors de la mise à jour"
         echo "Vérifiez les logs avec: sk logs"
@@ -183,52 +188,90 @@ update_function() {
 }
 
 case "$1" in
+    dev)
+        echo "🚀 Lancement du mode développement..."
+        echo "Backend sur http://localhost:3001"
+        echo "Frontend sur http://localhost:3000"
+        echo ""
+        print_step "Démarrage du backend..."
+        cd "$BACKEND_DIR"
+        npm run dev &
+        BACKEND_PID=$!
+        
+        print_step "Démarrage du frontend..."
+        cd "$FRONTEND_DIR"
+        npm run dev &
+        FRONTEND_PID=$!
+        
+        echo ""
+        print_success "Développement démarré!"
+        echo "Appuyez sur Ctrl+C pour arrêter les deux serveurs"
+        
+        # Attendre l'interruption et tuer les processus
+        trap 'echo ""; print_step "Arrêt des serveurs..."; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; print_success "Serveurs arrêtés"; exit 0' INT
+        wait
+        ;;
+    build)
+        echo "🏗️ Construction du frontend..."
+        cd "$FRONTEND_DIR"
+        print_step "Installation des dépendances..."
+        npm i
+        print_step "Build en cours..."
+        npm run build
+        if [ $? -eq 0 ]; then
+            print_success "Frontend buildé avec succès!"
+            print_success "Prêt pour le déploiement"
+        else
+            print_error "Erreur lors du build"
+        fi
+        ;;
     start)
-        echo "🚀 Démarrage de Skull King..."
-        cd "$PROJECT_DIR"
-        pm2 start ecosystem.config.cjs --env production 2>/dev/null || {
+        echo "🚀 Démarrage de Skull King Backend..."
+        cd "$BACKEND_DIR"
+        pm2 start ecosystem.config.js --env production 2>/dev/null || {
             print_warning "Processus déjà en cours, tentative de redémarrage..."
-            pm2 restart skullking
+            pm2 restart skullking-backend
         }
         pm2 save
         sleep 2
         if check_app_status; then
-            print_success "Skull King démarré avec succès"
+            print_success "Backend Skull King démarré avec succès"
+            print_success "Backend accessible sur http://localhost:3001"
         else
             print_error "Échec du démarrage"
         fi
         ;;
     stop)
-        echo "🛑 Arrêt de Skull King..."
-        pm2 stop skullking 2>/dev/null || print_warning "Application déjà arrêtée"
-        print_success "Skull King arrêté"
+        echo "🛑 Arrêt de Skull King Backend..."
+        pm2 stop skullking-backend 2>/dev/null || print_warning "Application déjà arrêtée"
+        print_success "Backend Skull King arrêté"
         ;;
     restart)
-        echo "🔄 Redémarrage de Skull King..."
-        cd "$PROJECT_DIR"
-        pm2 restart skullking 2>/dev/null || {
+        echo "🔄 Redémarrage de Skull King Backend..."
+        cd "$BACKEND_DIR"
+        pm2 restart skullking-backend 2>/dev/null || {
             print_warning "Processus non trouvé, démarrage..."
-            pm2 start ecosystem.config.cjs --env production
+            pm2 start ecosystem.config.js --env production
         }
         pm2 save
         sleep 2
         if check_app_status; then
-            print_success "Skull King redémarré avec succès"
+            print_success "Backend Skull King redémarré avec succès"
         else
             print_error "Échec du redémarrage"
         fi
         ;;
     status)
         if check_app_status; then
-            print_success "Skull King en ligne"
+            print_success "Backend Skull King en ligne"
         else
-            print_error "Skull King hors ligne"
+            print_error "Backend Skull King hors ligne"
         fi
         ;;
     logs)
-        echo "📋 Logs de Skull King en temps réel (Ctrl+C pour arrêter):"
+        echo "📋 Logs du Backend Skull King en temps réel (Ctrl+C pour arrêter):"
         echo "=========================================================="
-        pm2 logs skullking 2>/dev/null || print_error "Impossible d'accéder aux logs"
+        pm2 logs skullking-backend 2>/dev/null || print_error "Impossible d'accéder aux logs"
         ;;
     monitor)
         monitor_function
@@ -237,46 +280,45 @@ case "$1" in
         update_function
         ;;
     deploy)
-        echo "🚀 Déploiement complet..."
+        echo "🚀 Déploiement backend..."
         cd "$PROJECT_DIR"
         
-        # Vérification et création du fichier .env
-        print_step "Vérification de la configuration d'environnement..."
+        # Vérification et création du fichier .env backend
+        print_step "Vérification de la configuration d'environnement backend..."
+        cd "$BACKEND_DIR"
         if [ ! -f ".env" ]; then
             if [ -f ".env.example" ]; then
                 print_step "Copie de .env.example vers .env..."
                 cp .env.example .env
                 print_success "Fichier .env créé à partir de .env.example"
             else
-                print_warning "Ni .env ni .env.example trouvés"
+                print_warning "Ni .env ni .env.example trouvés dans le backend"
             fi
         else
-            print_success "Fichier .env déjà présent"
+            print_success "Fichier .env déjà présent dans le backend"
         fi
         
         # Arrêt de l'application
         print_step "Arrêt de l'application si elle est en cours d'exécution..."
-        pm2 stop skullking 2>/dev/null || echo "Application pas encore démarrée"
+        pm2 stop skullking-backend 2>/dev/null || echo "Backend pas encore démarré"
 
-        # Installation des dépendances
-        print_step "Installation des dépendances..."
+        # Installation des dépendances backend
+        print_step "Installation des dépendances backend..."
+        cd "$BACKEND_DIR"
         npm i
 
         # Génération du client Prisma
         print_step "Génération du client Prisma..."
         npx prisma generate
 
-        # Build
-        print_step "Construction de l'application..."
-        npm run build
-
         # Initialisation de la base de données
         print_step "Initialisation de la base de données de production..."
         NODE_ENV=production npx prisma db push
 
-        # Démarrage avec PM2
-        print_step "Démarrage avec PM2..."
-        pm2 start ecosystem.config.cjs --env production
+        # Démarrage du backend avec PM2
+        print_step "Démarrage du backend avec PM2..."
+        cd "$BACKEND_DIR"
+        pm2 start ecosystem.config.js --env production
 
         # Sauvegarde de la configuration PM2
         print_step "Sauvegarde de la configuration PM2..."
@@ -285,17 +327,97 @@ case "$1" in
         # Vérification finale
         sleep 5
         if check_app_status; then
-            print_success "🎉 Déploiement terminé avec succès!"
-            print_success "L'application est accessible sur http://localhost:3000"
+            print_success "🎉 Déploiement backend terminé avec succès!"
+            print_success "Backend accessible sur http://localhost:3001"
+            print_success "Le frontend peut être déployé séparément"
+        else
+            print_error "❌ Problème lors du déploiement"
+        fi
+        ;;
+    deploy-full)
+        echo "🚀 Déploiement complet (backend + frontend)..."
+        cd "$PROJECT_DIR"
+        
+        # Vérification et création du fichier .env backend
+        print_step "Vérification de la configuration d'environnement backend..."
+        cd "$BACKEND_DIR"
+        if [ ! -f ".env" ]; then
+            if [ -f ".env.example" ]; then
+                print_step "Copie de .env.example vers .env..."
+                cp .env.example .env
+                print_success "Fichier .env créé à partir de .env.example"
+            else
+                print_warning "Ni .env ni .env.example trouvés dans le backend"
+            fi
+        else
+            print_success "Fichier .env déjà présent dans le backend"
+        fi
+        
+        # Vérification et création du fichier .env frontend
+        print_step "Vérification de la configuration d'environnement frontend..."
+        cd "$FRONTEND_DIR"
+        if [ ! -f ".env.local" ]; then
+            if [ -f ".env.example" ]; then
+                print_step "Copie de .env.example vers .env.local..."
+                cp .env.example .env.local
+                print_success "Fichier .env.local créé à partir de .env.example"
+            else
+                print_warning "Ni .env.local ni .env.example trouvés dans le frontend"
+            fi
+        else
+            print_success "Fichier .env.local déjà présent dans le frontend"
+        fi
+        
+        # Arrêt de l'application
+        print_step "Arrêt de l'application si elle est en cours d'exécution..."
+        pm2 stop skullking-backend 2>/dev/null || echo "Backend pas encore démarré"
+
+        # Installation des dépendances backend
+        print_step "Installation des dépendances backend..."
+        cd "$BACKEND_DIR"
+        npm i
+
+        # Génération du client Prisma
+        print_step "Génération du client Prisma..."
+        npx prisma generate
+
+        # Initialisation de la base de données
+        print_step "Initialisation de la base de données de production..."
+        NODE_ENV=production npx prisma db push
+
+        # Installation des dépendances frontend
+        print_step "Installation des dépendances frontend..."
+        cd "$FRONTEND_DIR"
+        npm i
+
+        # Build du frontend
+        print_step "Construction du frontend..."
+        npm run build
+
+        # Démarrage du backend avec PM2
+        print_step "Démarrage du backend avec PM2..."
+        cd "$BACKEND_DIR"
+        pm2 start ecosystem.config.js --env production
+
+        # Sauvegarde de la configuration PM2
+        print_step "Sauvegarde de la configuration PM2..."
+        pm2 save
+
+        # Vérification finale
+        sleep 5
+        if check_app_status; then
+            print_success "🎉 Déploiement complet terminé avec succès!"
+            print_success "Backend accessible sur http://localhost:3001"
+            print_success "Frontend buildé et prêt à être déployé"
         else
             print_error "❌ Problème lors du déploiement"
         fi
         ;;
     api)
         echo "🏥 Vérification de la santé de l'application..."
-        if curl -s http://localhost:3000/api/health >/dev/null 2>&1; then
+        if curl -s http://localhost:3001/health >/dev/null 2>&1; then
             print_success "API accessible"
-            echo "Réponse: $(curl -s http://localhost:3000/api/health)"
+            echo "Réponse: $(curl -s http://localhost:3001/health)"
         else
             print_error "API non accessible"
         fi
@@ -342,21 +464,34 @@ case "$1" in
                 mkdir -p "$LOG_DIR"
             fi
 
-            # Exécution du script de reset
-            print_step "Exécution du script de réinitialisation..."
-            node reset-project.js
+            # Suppression de la base de données
+            print_step "Suppression de la base de données..."
+            if [ -f "$BACKEND_DIR/prisma/dev.db" ]; then
+                rm -f "$BACKEND_DIR/prisma/dev.db"
+                print_success "Base de données supprimée"
+            fi
+
+            # Arrêt et suppression du processus PM2
+            print_step "Arrêt du processus PM2..."
+            pm2 stop skullking-backend 2>/dev/null || echo "Processus déjà arrêté"
+            pm2 delete skullking-backend 2>/dev/null || echo "Processus non trouvé"
+
+            # Réinitialisation de la base de données
+            print_step "Réinitialisation de la base de données..."
+            cd "$BACKEND_DIR"
+            npx prisma db push --force-reset
+
+            # Redémarrage
+            print_step "Redémarrage de l'application..."
+            pm2 start ecosystem.config.js --env production
+            pm2 save
             
-            if [ $? -eq 0 ]; then
-                print_success "Réinitialisation terminée avec succès"
-                
-                sleep 2
-                if check_app_status; then
-                    print_success "Projet réinitialisé et prêt à utiliser"
-                fi
+            sleep 2
+            if check_app_status; then
+                print_success "Projet réinitialisé et prêt à utiliser"
+                print_success "Backend accessible sur http://localhost:3001"
             else
                 print_error "Erreur lors de la réinitialisation"
-                print_step "Tentative de redémarrage de l'application..."
-                pm2 start skullking 2>/dev/null || pm2 start ecosystem.config.cjs --env production
             fi
         else
             print_warning "Réinitialisation annulée"
@@ -370,17 +505,24 @@ case "$1" in
         echo ""
         echo "Commandes disponibles:"
         echo ""
-        echo "  start         - Démarre l'application"
-        echo "  stop          - Arrête l'application"
-        echo "  restart       - Redémarre l'application"
-        echo "  status        - Affiche le statut détaillé"
-        echo "  logs          - Affiche les logs PM2 en temps réel"
+        echo "  start         - Démarre le backend"
+        echo "  stop          - Arrête le backend"
+        echo "  restart       - Redémarre le backend"
+        echo "  status        - Affiche le statut du backend"
+        echo "  logs          - Affiche les logs PM2 du backend en temps réel"
         echo "  monitor       - Monitoring complet avec ressources système"
-        echo "  deploy        - Déploiement complet (deps + build + start)"
-        echo "  update        - Mise à jour complète de l'application"
-        echo "  api           - Vérifie la santé de l'API"
+        echo "  deploy        - Déploiement backend uniquement (recommandé)"
+        echo "  deploy-full   - Déploiement backend + build frontend"
+        echo "  update        - Mise à jour du backend"
+        echo "  api           - Vérifie la santé de l'API backend"
+        echo "  dev           - Lance le développement (backend + frontend)"
+        echo "  build         - Build le frontend uniquement"
         echo "  reset         - Réinitialise complètement le projet (⚠️ SUPPRIME TOUTES LES DONNÉES)"
         echo "                  Options: --y ou -y pour confirmer automatiquement"
+        echo ""
+        echo "Architecture:"
+        echo "  📁 Backend : Port 3001 (API + Socket.IO)"
+        echo "  📁 Frontend: Port 3000 (Next.js - dev) ou déployé séparément"
         echo ""
         exit 1
         ;;
