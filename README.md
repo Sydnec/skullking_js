@@ -43,7 +43,6 @@ Le projet est organisé en **deux services indépendants** :
 
 La documentation complète est organisée en guides spécialisés :
 
-- **[🚀 Guide de déploiement](DEPLOYMENT-GUIDE.md)** - Déploiement production complet
 - **[🏴‍☠️ Règles du jeu](docs/RULES.md)** - Règles officielles détaillées
 - **[🤝 Guide de contribution](docs/CONTRIBUTING.md)** - Comment contribuer au projet
 
@@ -52,19 +51,16 @@ La documentation complète est organisée en guides spécialisés :
 ### Développement local
 ```bash
 # Démarrer les deux serveurs automatiquement
-./dev.sh
+./sk deploy-all
 
 # Ou manuellement :
-cd backend/ && npm run dev    # Port 3001
-cd frontend/ && npm run dev   # Port 3000
+./sk dev
 ```
 
 ### Production
 ```bash
 # Backend (auto-hébergé)
-cd backend/
-npm install --production
-pm2 start ecosystem.config.js
+./sk deploy
 
 # Frontend (Vercel)
 # Configurez les variables d'environnement et déployez
@@ -96,25 +92,11 @@ skullking_js/
 ├── docs/                   # 📚 Documentation
 │   ├── RULES.md           # Règles officielles du jeu
 │   └── CONTRIBUTING.md     # Guide de contribution
-├── dev.sh                  # Script de développement
-├── test-separation.sh      # Script de test
-└── build-prod.sh          # Script de production
+└── sk                      # Script de production
 ```
-
-## 🚀 Scripts utiles
-
-- **`./dev.sh`** - Démarrage automatique en développement
-- **`./test-separation.sh`** - Test de la séparation backend/frontend
-- **`./build-prod.sh`** - Build de production
-
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! Consultez le [guide de contribution](docs/CONTRIBUTING.md) pour :
-
-- 🔄 Processus de contribution
-- 🧪 Standards de code
-- 🐛 Signalement de bugs
-- ✨ Propositions de fonctionnalités
 
 ## 📄 Licence
 
@@ -122,8 +104,6 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 
 ---
 
-**🎯 Status:** ✅ Séparation backend/frontend terminée  
-**🚀 Prêt pour:** Déploiement en production  
 **📅 Dernière mise à jour:** Juin 2025
 
 ## 👨‍💻 Auteur

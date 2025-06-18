@@ -16,7 +16,7 @@ Marquer le plus de points en prédisant exactement le nombre de plis que vous al
 
 **Exemples de cartes numériques par couleur :**
 
-<img src="../public/images/cards/suits/black.png" width="60" alt="Carte Noire"> <img src="../public/images/cards/suits/green.png" width="60" alt="Carte Verte"> <img src="../public/images/cards/suits/purple.png" width="60" alt="Carte Violette"> <img src="../public/images/cards/suits/yellow.png" width="60" alt="Carte Jaune">
+<img src="../frontend/public/images/cards/suits/black.png" width="60" alt="Carte Noire"> <img src="../frontend/public/images/cards/suits/green.png" width="60" alt="Carte Verte"> <img src="../frontend/public/images/cards/suits/purple.png" width="60" alt="Carte Violette"> <img src="../frontend/public/images/cards/suits/yellow.png" width="60" alt="Carte Jaune">
 
 *De gauche à droite : Noir, Vert, Violet, Jaune*
 
@@ -31,27 +31,27 @@ Marquer le plus de points en prédisant exactement le nombre de plis que vous al
 
 **Skull King :**
 
-<img src="../public/images/cards/special/skullking.png" width="80" alt="Skull King">
+<img src="../frontend/public/images/cards/special/skullking.png" width="80" alt="Skull King">
 
 **Pirates (5 cartes différentes) :**
 
-<img src="../public/images/cards/pirates/pirate1.png" width="60" alt="Pirate 1"> <img src="../public/images/cards/pirates/pirate2.png" width="60" alt="Pirate 2"> <img src="../public/images/cards/pirates/pirate3.png" width="60" alt="Pirate 3"> <img src="../public/images/cards/pirates/pirate4.png" width="60" alt="Pirate 4"> <img src="../public/images/cards/pirates/pirate5.png" width="60" alt="Pirate 5">
+<img src="../frontend/public/images/cards/pirates/pirate1.png" width="60" alt="Pirate 1"> <img src="../frontend/public/images/cards/pirates/pirate2.png" width="60" alt="Pirate 2"> <img src="../frontend/public/images/cards/pirates/pirate3.png" width="60" alt="Pirate 3"> <img src="../frontend/public/images/cards/pirates/pirate4.png" width="60" alt="Pirate 4"> <img src="../frontend/public/images/cards/pirates/pirate5.png" width="60" alt="Pirate 5">
 
 **Sirènes (2 cartes différentes) :**
 
-<img src="../public/images/cards/mermaids/mermaid1.png" width="60" alt="Sirène 1"> <img src="../public/images/cards/mermaids/mermaid2.png" width="60" alt="Sirène 2">
+<img src="../frontend/public/images/cards/mermaids/mermaid1.png" width="60" alt="Sirène 1"> <img src="../frontend/public/images/cards/mermaids/mermaid2.png" width="60" alt="Sirène 2">
 
 **Tigresse (polyvalente) :**
 
-<img src="../public/images/cards/special/tigress.png" width="60" alt="Tigresse"> 
+<img src="../frontend/public/images/cards/special/tigress.png" width="60" alt="Tigresse"> 
 
 *La Tigresse peut être jouée soit comme un pirate, soit comme une fuite*
 
-<img src="../public/images/cards/special/tigress-pirate.png" width="60" alt="Tigresse-Pirate"> <img src="../public/images/cards/special/tigress-escape.png" width="60" alt="Tigresse-Fuite">
+<img src="../frontend/public/images/cards/special/tigress-pirate.png" width="60" alt="Tigresse-Pirate"> <img src="../frontend/public/images/cards/special/tigress-escape.png" width="60" alt="Tigresse-Fuite">
 
 **Fuites (5 cartes) :**
 
-<img src="../public/images/cards/special/escape.png" width="60" alt="Fuite">
+<img src="../frontend/public/images/cards/special/escape.png" width="60" alt="Fuite">
 
 *Les 5 cartes de fuite ont le même visuel*
 
@@ -150,7 +150,7 @@ Calcul des scores selon les règles de points (voir section suivante).
 
 *Exemples de cartes 14 qui donnent des bonus :*
 
-<img src="../public/images/cards/suits/green.png" width="50" alt="Carte 14 couleur"> <img src="../public/images/cards/suits/purple.png" width="50" alt="Carte 14 couleur"> <img src="../public/images/cards/suits/yellow.png" width="50" alt="Carte 14 couleur"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <img src="../public/images/cards/suits/black.png" width="50" alt="Carte 14 noir">
+<img src="../frontend/public/images/cards/suits/green.png" width="50" alt="Carte 14 couleur"> <img src="../frontend/public/images/cards/suits/purple.png" width="50" alt="Carte 14 couleur"> <img src="../frontend/public/images/cards/suits/yellow.png" width="50" alt="Carte 14 couleur"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <img src="../frontend/public/images/cards/suits/black.png" width="50" alt="Carte 14 noir">
 
 *(+10 pts chacune)* &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *(+20 pts)*
 
@@ -163,11 +163,11 @@ Calcul des scores selon les règles de points (voir section suivante).
 
 **Exemples de captures qui donnent des bonus :**
 
-<img src="../public/images/cards/pirates/pirate1.png" width="40" alt="Pirate"> capture <img src="../public/images/cards/mermaids/mermaid1.png" width="40" alt="Sirène"> = **+20 points**
+<img src="../frontend/public/images/cards/pirates/pirate1.png" width="40" alt="Pirate"> capture <img src="../frontend/public/images/cards/mermaids/mermaid1.png" width="40" alt="Sirène"> = **+20 points**
 
-<img src="../public/images/cards/special/skullking.png" width="40" alt="Skull King"> capture <img src="../public/images/cards/pirates/pirate2.png" width="40" alt="Pirate"> = **+30 points**
+<img src="../frontend/public/images/cards/special/skullking.png" width="40" alt="Skull King"> capture <img src="../frontend/public/images/cards/pirates/pirate2.png" width="40" alt="Pirate"> = **+30 points**
 
-<img src="../public/images/cards/mermaids/mermaid2.png" width="40" alt="Sirène"> capture <img src="../public/images/cards/special/skullking.png" width="40" alt="Skull King"> = **+40 points**
+<img src="../frontend/public/images/cards/mermaids/mermaid2.png" width="40" alt="Sirène"> capture <img src="../frontend/public/images/cards/special/skullking.png" width="40" alt="Skull King"> = **+40 points**
 
 ### Règles des captures
 

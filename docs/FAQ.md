@@ -35,22 +35,6 @@ Réponses rapides aux questions les plus courantes sur Skull King.
 
 ---
 
-## 🃏 Questions sur les règles
-
-### Q: Quelle est la différence entre les cartes colorées et noires ?
-**R:** Les cartes noires (1 à 14) battent toujours les cartes colorées de même valeur.
-
-### Q: Comment fonctionne la Tigresse ?
-**R:** Vous choisissez au moment de la jouer : soit pirate (forte), soit fuite (faible).
-
-### Q: Une sirène bat vraiment Skull King ?
-**R:** Oui ! C'est la règle spéciale : la sirène "charme" Skull King. Bonus de 50 points !
-
-### Q: Peut-on parier 0 pli ?
-**R:** Oui ! Si vous n'avez que des fuites et cartes faibles, c'est une excellente stratégie.
-
----
-
 ## 🔐 Questions sur la sécurité
 
 ### Q: Mes données sont-elles protégées ?
