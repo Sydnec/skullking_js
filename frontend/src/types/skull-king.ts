@@ -23,6 +23,14 @@ export interface Player {
   captureEvents?: CaptureEvent[]; // Capture events for bonus calculation
 }
 
+// Spectator interface for users watching the game
+export interface Spectator {
+  id: string;
+  username: string;
+  isOnline: boolean;
+  joinedAt: Date;
+}
+
 // Capture event for bonus calculation
 export interface CaptureEvent {
   capturerType: CardType; // What captured
@@ -63,6 +71,7 @@ export interface SkullKingGameState {
   id: string;
   roomId: string;
   players: Player[];
+  spectators?: Spectator[]; // Spectators watching the game
   creatorId: string; // ID du créateur de la room
   roomStatus: 'LOBBY' | 'GAME_STARTED' | 'GAME_ENDED'; // Statut de la room
   currentRound: Round | null;

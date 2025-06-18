@@ -11,6 +11,7 @@ interface UseGameSocketProps {
   roomId: string;
   userId: string;
   username: string;
+  forceSpectator?: boolean; // Optional flag to force joining as spectator
 }
 
 interface UseGameSocketReturn {
@@ -18,6 +19,7 @@ interface UseGameSocketReturn {
   gameState: SkullKingGameState | null;
   connected: boolean;
   hasJoined: boolean;
+  isSpectator: boolean;
   joinGame: () => void;
   leaveGame: () => void;
   deleteRoom: () => void;
@@ -30,11 +32,13 @@ export function useGameSocket({
   roomId,
   userId,
   username,
+  forceSpectator = false,
 }: UseGameSocketProps): UseGameSocketReturn {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [gameState, setGameState] = useState<SkullKingGameState | null>(null);
   const [connected, setConnected] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
+  const [isSpectator, setIsSpectator] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const joinAttemptRef = useRef(false);
@@ -106,11 +110,19 @@ export function useGameSocket({
     );
     socketInstance.on(
       "join-success",
-      (data: { gameState: SkullKingGameState }) => {
+      (data: { gameState: SkullKingGameState; isSpectator?: boolean; spectatorId?: string }) => {
         console.log("Join success confirmed:", data);
         setHasJoined(true);
         joinAttemptRef.current = false; // Reset for potential future rejoins
         setGameState(data.gameState);
+        
+        // Check if user joined as spectator
+        if (data.isSpectator) {
+          setIsSpectator(true);
+          showInfo("Vous observez cette partie en mode spectateur", "Mode spectateur");
+        } else {
+          setIsSpectator(false);
+        }
       }
     );
     socketInstance.on(
@@ -180,6 +192,23 @@ export function useGameSocket({
         console.log("Player left:", data);
         // Show notification when a player leaves
         showWarning(`${data.username} a quitté la partie`, "Joueur parti");
+      }
+    );
+
+    // Handle spectator events
+    socketInstance.on(
+      "spectator-joined",
+      (data: { userId: string; username: string }) => {
+        console.log("Spectator joined:", data);
+        showInfo(`👀 ${data.username} observe maintenant la partie`, "Nouveau spectateur");
+      }
+    );
+
+    socketInstance.on(
+      "spectator-left",
+      (data: { userId: string; username: string }) => {
+        console.log("Spectator left:", data);
+        showInfo(`👀 ${data.username} a arrêté d'observer la partie`, "Spectateur parti");
       }
     );
 
@@ -268,20 +297,20 @@ export function useGameSocket({
       // Add a small delay to prevent immediate rejoin after disconnect
       const joinTimer = setTimeout(() => {
         if (socket && connected && !hasJoined && joinAttemptRef.current) {
-          socket.emit("join-game", { roomId, userId, username });
+          socket.emit("join-game", { roomId, userId, username, forceSpectator });
         }
       }, 100);
 
       return () => clearTimeout(joinTimer);
     }
-  }, [socket, connected, hasJoined, roomId, userId, username]);
+  }, [socket, connected, hasJoined, roomId, userId, username, forceSpectator]);
   const joinGame = useCallback(() => {
     if (socket && connected && !hasJoined && !joinAttemptRef.current) {
       console.log(`Manually joining game room: ${roomId} as ${username}`);
       joinAttemptRef.current = true;
-      socket.emit("join-game", { roomId, userId, username });
+      socket.emit("join-game", { roomId, userId, username, forceSpectator });
     }
-  }, [socket, connected, hasJoined, roomId, userId, username]);
+  }, [socket, connected, hasJoined, roomId, userId, username, forceSpectator]);
 
   const leaveGame = useCallback(() => {
     if (socket && connected && hasJoined) {
@@ -330,6 +359,7 @@ export function useGameSocket({
     gameState,
     connected,
     hasJoined,
+    isSpectator,
     joinGame,
     leaveGame,
     deleteRoom,

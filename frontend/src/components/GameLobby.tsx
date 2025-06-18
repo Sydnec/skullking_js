@@ -180,6 +180,22 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
       showError("Erreur lors de la connexion à la partie", "Connexion échouée");
       console.error("Error joining room:", error);
     }
+  };const handleJoinAsSpectator = async (roomCode: string) => {
+    try {
+      // Show info notification
+      showInfo(`Connexion en tant que spectateur à la partie ${roomCode}...`, 'Mode spectateur');
+      
+      // Ensure user session is saved before navigation
+      localStorage.setItem("lastUsername", user.username);
+      localStorage.setItem("lastUserId", user.id);
+
+      // Navigate directly to the room page - the socket handler will determine spectator mode
+      // based on room status when user tries to join
+      router.push(`/${roomCode}?mode=spectator`);
+    } catch (error) {
+      showError("Erreur lors de la connexion en spectateur", "Connexion échouée");
+      console.error("Error joining room as spectator:", error);
+    }
   };
   // Helper function to check if user is already in a room
   const isUserInRoom = (room: Room): boolean => {
@@ -336,27 +352,41 @@ export default function GameLobby({ user, onLogout }: GameLobbyProps) {
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                       {room.players.length}/{room.maxPlayers} joueurs
                     </span>
-                    {room.status === "waiting" &&
-                      (isUserInRoom(room) ? (
+                    <div className="flex gap-2">
+                      {room.status === "waiting" &&
+                        (isUserInRoom(room) ? (
+                          <button
+                            onClick={() => {
+                              // Ensure user session is saved before navigation
+                              localStorage.setItem("lastUsername", user.username);
+                              localStorage.setItem("lastUserId", user.id);
+                              router.push(`/${room.id}`);
+                            }}
+                            className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1 px-3 rounded transition-colors duration-200"
+                          >
+                            Rejoindre la partie
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleJoinRoom(room.id)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded transition-colors duration-200"
+                          >
+                            Rejoindre
+                          </button>
+                        ))}
+                      
+                      {/* Spectator button - available for all rooms, regardless of status */}
+                      {!isUserInRoom(room) && (
                         <button
-                          onClick={() => {
-                            // Ensure user session is saved before navigation
-                            localStorage.setItem("lastUsername", user.username);
-                            localStorage.setItem("lastUserId", user.id);
-                            router.push(`/${room.id}`);
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1 px-3 rounded transition-colors duration-200"
+                          onClick={() => handleJoinAsSpectator(room.id)}
+                          className="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-1 px-3 rounded transition-colors duration-200 flex items-center gap-1"
+                          title="Rejoindre en tant que spectateur"
                         >
-                          Rejoindre la partie
+                          <span>👀</span>
+                          <span className="hidden sm:inline">Spectateur</span>
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => handleJoinRoom(room.id)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded transition-colors duration-200"
-                        >
-                          Rejoindre
-                        </button>
-                      ))}
+                      )}
+                    </div>
                   </div>
                 </div>
               ))

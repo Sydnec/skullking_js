@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Room, User } from '@/lib/api';
 import { saveUserToStorage } from '@/lib/user-persistence';
 import GameRoom from './GameRoom';
@@ -16,6 +16,10 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check if user wants to join as spectator
+  const forceSpectator = searchParams.get('mode') === 'spectator';
 
   // Ensure component is mounted before accessing localStorage
   useEffect(() => {
@@ -131,6 +135,7 @@ export default function GameRoomPage({ roomData }: GameRoomPageProps) {
       user={user}
       roomId={roomData.id}
       onLeaveRoom={handleLeaveRoom}
+      forceSpectator={forceSpectator}
     />
   );
 }

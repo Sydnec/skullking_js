@@ -15,9 +15,10 @@ interface GameRoomProps {
   user: User;
   roomId: string;
   onLeaveRoom: () => void;
+  forceSpectator?: boolean;
 }
 
-export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
+export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = false }: GameRoomProps) {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [trickWinner, setTrickWinner] = useState<{ playerName: string; playerId: string } | null>(null);
@@ -30,6 +31,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
     gameState, 
     connected, 
     hasJoined,
+    isSpectator,
     leaveGame, 
     deleteRoom,
     sendGameAction,
@@ -38,7 +40,8 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
   } = useGameSocket({
     roomId,
     userId: user.id,
-    username: user.username
+    username: user.username,
+    forceSpectator
   });// Store the leaveGame function in ref to avoid dependency issues
   leaveGameRef.current = leaveGame;
 
@@ -123,10 +126,24 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
   };
 
   const handleLeaveRoom = () => {
-    if (!gameState || !currentPlayer) return;
+    if (!gameState) return;
     
     // Sauvegarder les données utilisateur avant toute action
     saveUserToStorage(user);
+    
+    // If user is a spectator, just leave
+    if (isSpectator) {
+      leaveGame();
+      onLeaveRoom();
+      return;
+    }
+    
+    // If user is not a player (shouldn't happen but safety check)
+    if (!currentPlayer) {
+      leaveGame();
+      onLeaveRoom();
+      return;
+    }
     
     if (currentPlayer.id === gameState.creatorId) {
       // Creator should delete the room, not just leave
@@ -230,7 +247,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
         }}
       />
     );
-  };  if (!gameState || !currentPlayer) {
+  };  if (!gameState || (!currentPlayer && !isSpectator)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center max-w-md w-full mx-4">
@@ -320,11 +337,18 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
         {/* Header */}
         <div className="flex justify-between items-center mb-4 flex-shrink-0">
           <div>            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Skull King - room {roomId}
+              Skull King - room {roomId} {isSpectator && '👀 (Spectateur)'}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {gameState.roomStatus === 'LOBBY' ? (
+              {isSpectator && (
+                <span className="text-blue-600 dark:text-blue-400 font-medium">
+                  Mode spectateur - Vous observez cette partie 
+                </span>
+              )}
+              {!isSpectator && gameState.roomStatus === 'LOBBY' ? (
                 `Lobby - ${gameState.players.length} joueur(s) connecté(s)`
+              ) : !isSpectator ? (
+                `Round ${currentRound?.number || 1} - ${getGamePhaseText(gameState.gamePhase)}`
               ) : (
                 `Round ${currentRound?.number || 1} - ${getGamePhaseText(gameState.gamePhase)}`
               )}
@@ -341,7 +365,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
             <div className={`text-xs ${connected ? 'text-green-600' : 'text-red-600'}`}>
               {connected ? '🟢 Connecté' : '🔴 Déconnecté'}
             </div>
-            {currentPlayer?.id === gameState.creatorId ? (
+            {!isSpectator && currentPlayer?.id === gameState.creatorId ? (
               <button
                 onClick={handleDeleteRoom}
                 className="px-2 md:px-3 py-1.5 text-xs md:text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
@@ -354,7 +378,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                 onClick={handleLeaveRoom}
                 className="px-2 md:px-3 py-1.5 text-xs md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors"
               >
-                <span className="hidden sm:inline">Quitter</span>
+                <span className="hidden sm:inline">{isSpectator ? '👀 Arrêter d\'observer' : 'Quitter'}</span>
                 <span className="sm:hidden">❌</span>
               </button>
             )}
@@ -418,6 +442,32 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                 </div>
               );
               })}
+              
+              {/* Spectators section */}
+              {gameState.spectators && gameState.spectators.length > 0 && (
+                <>
+                  <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      👀 Spectateurs ({gameState.spectators.length})
+                    </h3>
+                  </div>
+                  {gameState.spectators.map((spectator) => (
+                    <div
+                      key={spectator.id}
+                      className="p-2 rounded-md bg-gray-50 dark:bg-gray-700 flex-shrink-0"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-sm text-gray-700 dark:text-gray-300">
+                          👀 {spectator.username} {spectator.id === user.id && '(Vous)'}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {spectator.isOnline ? 'Observe' : 'Déconnecté'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </div>
 
@@ -480,8 +530,8 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
                   </div>
                 </div>
 
-                {/* Bouton en bas (uniquement pour le créateur) */}
-                {currentPlayer?.id === gameState.creatorId && (
+                {/* Bouton en bas (uniquement pour le créateur et pas les spectateurs) */}
+                {!isSpectator && currentPlayer?.id === gameState.creatorId && (
                   <div className="mt-4">
                     {gameState.players.length >= 2 ? (
                       <button
@@ -546,7 +596,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
             )}
 
           {/* Actions - For other phases */}
-          {gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'BIDDING' && !currentPlayer.isReady && (
+          {!isSpectator && currentPlayer && gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'BIDDING' && !currentPlayer.isReady && (
             <div className="flex flex-col h-full justify-between min-h-[300px]">
               {/* Section du haut - Instructions */}
               <div className="text-center">
@@ -625,7 +675,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
             </div>
           )}
 
-          {gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'BIDDING' && currentPlayer.isReady && (
+          {!isSpectator && currentPlayer && gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'BIDDING' && currentPlayer.isReady && (
             <div className="flex flex-col h-full justify-between min-h-[300px]">
               {/* Section du haut - Confirmation du pari */}
               <div className="text-center text-gray-600 dark:text-gray-400">
@@ -688,25 +738,41 @@ export default function GameRoom({ user, roomId, onLeaveRoom }: GameRoomProps) {
             </div>
           </div>
 
-          {/* Chat Section - À droite */}
-          <Chat 
-            user={user}
-            onSendMessage={sendChatMessage}
-            messages={chatMessages}
-          />
-        </div>
-
-        {/* Player Hand - Full width at bottom */}
-        <div className="mt-3 bg-white dark:bg-gray-800 rounded-lg p-3 flex-shrink-0">
-          <div className="flex flex-wrap gap-2 justify-center">
-            {(currentPlayer?.cards || []).map((card: Card) => getCardDisplay(card))}
-          </div>
-          {(currentPlayer?.cards?.length || 0) === 0 && (
-            <div className="text-center text-gray-500 dark:text-gray-400 py-4 text-sm">
-              Aucune carte en main
-            </div>
+          {/* Chat Section - À droite - Hidden for spectators */}
+          {!isSpectator && (
+            <Chat 
+              user={user}
+              onSendMessage={sendChatMessage}
+              messages={chatMessages}
+            />
           )}
         </div>
+
+        {/* Player Hand - Full width at bottom - Only show for actual players, not spectators */}
+        {!isSpectator && currentPlayer && (
+          <div className="mt-3 bg-white dark:bg-gray-800 rounded-lg p-3 flex-shrink-0">
+            <div className="flex flex-wrap gap-2 justify-center">
+              {(currentPlayer?.cards || []).map((card: Card) => getCardDisplay(card))}
+            </div>
+            {(currentPlayer?.cards?.length || 0) === 0 && (
+              <div className="text-center text-gray-500 dark:text-gray-400 py-4 text-sm">
+                Aucune carte en main
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Spectator message - Show for spectators */}
+        {isSpectator && (
+          <div className="mt-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+            <div className="text-blue-800 dark:text-blue-200">
+              <h3 className="font-semibold mb-2">👀 Mode Spectateur</h3>
+              <p className="text-sm">
+                Vous observez cette partie. Vous pouvez voir le jeu mais ne pouvez pas participer.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Confirmation Dialog for Room Deletion */}

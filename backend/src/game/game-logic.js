@@ -547,8 +547,8 @@ function setupGameSocketHandlers(io) {
         }
       });
     };    handleSocketAction('join-game', async (data) => {
-      const { roomId, userId, username } = data;
-      logWithTimestamp('info', `User ${username} (${userId}) joining room ${roomId}`, { socketId: socket.id });
+      const { roomId, userId, username, forceSpectator = false } = data;
+      logWithTimestamp('info', `User ${username} (${userId}) joining room ${roomId}${forceSpectator ? ' as spectator' : ''}`, { socketId: socket.id });
       
       // Validate input data
       if (!roomId || !userId || !username) {
@@ -610,20 +610,42 @@ function setupGameSocketHandlers(io) {
           users.forEach(user => {
             const existingPlayerById = savedGameState.players.find(p => p.id === user.id);
             const existingPlayerByName = savedGameState.players.find(p => p.username === user.username);
+            const existingSpectatorById = savedGameState.spectators?.find(s => s.id === user.id);
+            const existingSpectatorByName = savedGameState.spectators?.find(s => s.username === user.username);
             
-            if (!existingPlayerById && !existingPlayerByName && savedGameState.roomStatus === 'LOBBY') {
-              // Only allow new players to join if game is still in lobby
-              console.log(`➕ Adding completely new player ${user.username} to restored game`);
-              savedGameState.players.push({
-                id: user.id,
-                username: user.username,
-                cards: [],
-                bid: null,
-                score: 0,
-                tricksWon: 0,
-                isReady: false,
-                isOnline: true
-              });
+            if (!existingPlayerById && !existingPlayerByName && !existingSpectatorById && !existingSpectatorByName) {
+              if (savedGameState.roomStatus === 'LOBBY' && !forceSpectator) {
+                // Only allow new players to join if game is still in lobby and not forcing spectator
+                console.log(`➕ Adding completely new player ${user.username} to restored game`);
+                savedGameState.players.push({
+                  id: user.id,
+                  username: user.username,
+                  cards: [],
+                  bid: null,
+                  score: 0,
+                  tricksWon: 0,
+                  isReady: false,
+                  isOnline: true
+                });
+              } else {
+                // Game already started or user wants to be spectator, add as spectator
+                const reason = forceSpectator ? 'user requested spectator mode' : 'game already started';
+                console.log(`👀 Adding ${user.username} as spectator to restored game (${reason})`);
+                if (!savedGameState.spectators) {
+                  savedGameState.spectators = [];
+                }
+                savedGameState.spectators.push({
+                  id: user.id,
+                  username: user.username,
+                  isOnline: true,
+                  joinedAt: new Date()
+                });
+              }
+            } else if (existingSpectatorById) {
+              existingSpectatorById.isOnline = true;
+            } else if (existingSpectatorByName) {
+              existingSpectatorByName.id = user.id;
+              existingSpectatorByName.isOnline = true;
             }
           });
           
@@ -646,6 +668,7 @@ function setupGameSocketHandlers(io) {
               isOnline: true,
               captureEvents: []
             })),
+            spectators: [], // Initialize spectators array
             currentRound: {
               number: 1,
               currentTrick: {
@@ -703,13 +726,41 @@ function setupGameSocketHandlers(io) {
           // This is a completely new player
           console.log(`❓ ${username} not found in existing players list`);
           
-          // Check if game has already started - prevent NEW players from joining
-          if (gameState.roomStatus === 'GAME_STARTED') {
-            console.log(`❌ Game already started in room ${roomId}, rejecting NEW player ${username}`);
-            socket.emit('join-rejected', { 
-              reason: 'Game has already started',
-              message: 'Cette partie a déjà commencé. Vous ne pouvez plus rejoindre.'
+          // Check if user wants to force spectator mode or if game has already started
+          if (forceSpectator || gameState.roomStatus === 'GAME_STARTED') {
+            const reason = forceSpectator ? 'user requested spectator mode' : 'game already started';
+            console.log(`🎭 Adding ${username} as spectator to room ${roomId} (${reason})`);
+            
+            // Initialize spectators array if it doesn't exist
+            if (!gameState.spectators) {
+              gameState.spectators = [];
+            }
+            
+            // Check if user is already a spectator
+            const existingSpectator = gameState.spectators.find(s => s.id === userId || s.username === username);
+            if (!existingSpectator) {
+              gameState.spectators.push({
+                id: userId,
+                username: username,
+                isOnline: true,
+                joinedAt: new Date()
+              });
+              console.log(`👀 Added ${username} as spectator to room ${roomId}`);
+            } else {
+              existingSpectator.isOnline = true;
+              console.log(`🔄 Spectator ${username} reconnected to room ${roomId}`);
+            }
+            
+            // Send spectator join confirmation
+            socket.emit('join-success', { 
+              gameState,
+              isSpectator: true,
+              spectatorId: userId
             });
+            
+            // Notify all players about the new spectator
+            io.to(roomId).emit('spectator-joined', { userId, username });
+            io.to(roomId).emit('game-updated', gameState);
             return;
           }
           
@@ -780,6 +831,17 @@ function setupGameSocketHandlers(io) {
             // Mark player as offline instead of removing them
             gameState.players[playerIndex].isOnline = false;
             console.log(`🔌 Player ${gameState.players[playerIndex].username} marked as offline`);
+          }
+          
+          // Also check if user was a spectator
+          const spectatorIndex = gameState.spectators?.findIndex(s => s.id === userId);
+          if (spectatorIndex !== undefined && spectatorIndex >= 0) {
+            // Mark spectator as offline
+            gameState.spectators[spectatorIndex].isOnline = false;
+            console.log(`👀 Spectator ${gameState.spectators[spectatorIndex].username} marked as offline`);
+            
+            // Notify room about spectator leaving
+            io.to(roomId).emit('spectator-left', { userId, username: gameState.spectators[spectatorIndex].username });
           }
           
           // If no online players left, clean up the game
@@ -1099,6 +1161,12 @@ function setupGameSocketHandlers(io) {
             const player = gameState.players.find(p => p.id === user.id);
             if (player) {
               player.isOnline = false;
+            }
+            
+            // Also check spectators
+            const spectator = gameState.spectators?.find(s => s.id === user.id);
+            if (spectator) {
+              spectator.isOnline = false;
             }
             
             // Save game state after player disconnection
