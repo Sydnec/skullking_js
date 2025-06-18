@@ -1,8 +1,8 @@
 # 🏴‍☠️ Skull King - Jeu de Cartes Multijoueur
 
-Une implémentation en ligne du célèbre jeu de cartes **Skull King** développée avec Next.js, TypeScript, Socket.IO et Prisma.
+Une implémentation en ligne du célèbre jeu de cartes **Skull King** avec architecture frontend/backend séparée.
 
-![Skull King Screenshot](https://img.shields.io/badge/Game-Skull%20King-red) ![Next.js](https://img.shields.io/badge/Next.js-15.3.3-black) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![Socket.IO](https://img.shields.io/badge/Socket.IO-4.8.1-green) ![Prisma](https://img.shields.io/badge/Prisma-6.9.0-indigo)
+![Skull King Screenshot](https://img.shields.io/badge/Game-Skull%20King-red) ![Next.js](https://img.shields.io/badge/Next.js-15.3.3-black) ![Express.js](https://img.shields.io/badge/Express.js-4.21.2-yellow) ![Socket.IO](https://img.shields.io/badge/Socket.IO-4.8.1-green) ![Prisma](https://img.shields.io/badge/Prisma-6.10.0-indigo)
 
 ## 🎮 À propos
 
@@ -18,20 +18,58 @@ Skull King est un jeu de plis stratégique où les joueurs doivent prédire exac
 - 💬 **Chat en temps réel** intégré
 - 🎨 **Interface moderne** avec cartes personnalisées
 
+## 🏗️ Architecture
+
+Le projet est organisé en **deux services indépendants** :
+
+- **🔧 Backend** : Express.js + Socket.IO (Port 3001)
+  - API REST pour la gestion des utilisateurs et salles
+  - Socket.IO pour le gameplay temps réel
+  - Base de données Prisma + PostgreSQL/SQLite
+
+- **🎨 Frontend** : Next.js React (Port 3000)
+  - Interface utilisateur moderne
+  - Communication avec API externe
+  - Déployable sur Vercel
+
 ## 🛠️ Technologies
 
-- **Frontend** : Next.js 15, React 19, TypeScript
-- **Backend** : Node.js, Socket.IO  
-- **Base de données** : Prisma ORM + SQLite
-- **Styling** : Tailwind CSS
+- **Frontend** : Next.js 15, React 19, TypeScript, Tailwind CSS
+- **Backend** : Express.js, Socket.IO, JavaScript
+- **Base de données** : Prisma ORM + SQLite/PostgreSQL
+- **Déploiement** : Vercel (Frontend) + VPS/Cloud (Backend)
 
 ## 📚 Documentation
 
 La documentation complète est organisée en guides spécialisés :
 
-- **[📦 Guide d'installation](docs/INSTALLATION.md)** - Installation, déploiement et configuration complète
-- **[🏴‍☠️ Règles du jeu](docs/RULES.md)** - Règles officielles détaillées avec exemples
+- **[🚀 Guide de déploiement](DEPLOYMENT-GUIDE.md)** - Déploiement production complet
+- **[📦 Rapport de completion](PROJECT-COMPLETION-REPORT.md)** - Statut final du projet
+- **[🏴‍☠️ Règles du jeu](docs/RULES.md)** - Règles officielles détaillées
 - **[🤝 Guide de contribution](docs/CONTRIBUTING.md)** - Comment contribuer au projet
+
+## 🚀 Démarrage rapide
+
+### Développement local
+```bash
+# Démarrer les deux serveurs automatiquement
+./dev.sh
+
+# Ou manuellement :
+cd backend/ && npm run dev    # Port 3001
+cd frontend/ && npm run dev   # Port 3000
+```
+
+### Production
+```bash
+# Backend (auto-hébergé)
+cd backend/
+npm install --production
+pm2 start ecosystem.config.js
+
+# Frontend (Vercel)
+# Configurez les variables d'environnement et déployez
+```
 
 ## 🎮 Comment jouer
 
@@ -43,40 +81,32 @@ La documentation complète est organisée en guides spécialisés :
 
 > 📖 **Règles complètes** : Consultez le [guide des règles](docs/RULES.md) pour tous les détails.
 
-## ⚡ Outil de gestion `sk`
-
-Le script `sk` simplifie toutes les opérations :
-
-```bash
-./sk deploy    # Déploiement complet
-./sk start     # Démarrer l'application
-./sk stop      # Arrêter l'application
-./sk logs      # Voir les logs
-./sk monitor   # Monitoring en temps réel
-./sk update    # Mise à jour complète
-```
-
-> 🔧 **Installation détaillée** : Voir le [guide d'installation](docs/INSTALLATION.md)
-
 ## 🗂️ Structure du projet
 
 ```
 skullking_js/
-├── docs/                    # 📚 Documentation complète
-│   ├── INSTALLATION.md      # Guide d'installation et déploiement
-│   ├── RULES.md            # Règles officielles du jeu
+├── 🔧 backend/              # Express.js + Socket.IO (Port 3001)
+│   ├── server.js           # Point d'entrée serveur
+│   ├── src/api/            # Routes API REST
+│   ├── src/game/           # Logique de jeu
+│   └── src/database/       # Configuration Prisma
+├── 🎨 frontend/            # Next.js React (Port 3000)
+│   ├── src/app/            # Pages Next.js
+│   ├── src/components/     # Composants React
+│   └── src/lib/            # Utilitaires et API client
+├── docs/                   # 📚 Documentation
+│   ├── RULES.md           # Règles officielles du jeu
 │   └── CONTRIBUTING.md     # Guide de contribution
-├── src/                    # Code source
-│   ├── app/               # Next.js App Router
-│   ├── components/        # Composants React
-│   ├── lib/              # Services et utilitaires
-│   ├── types/            # Types TypeScript
-│   └── hooks/            # Hooks personnalisés
-├── prisma/               # Base de données
-├── game-logic.js         # Moteur de jeu serveur
-├── server.js            # Serveur Socket.IO
-└── sk                   # Script de gestion unifié
+├── dev.sh                  # Script de développement
+├── test-separation.sh      # Script de test
+└── build-prod.sh          # Script de production
 ```
+
+## 🚀 Scripts utiles
+
+- **`./dev.sh`** - Démarrage automatique en développement
+- **`./test-separation.sh`** - Test de la séparation backend/frontend
+- **`./build-prod.sh`** - Build de production
 
 ## 🤝 Contribution
 
@@ -90,6 +120,12 @@ Les contributions sont les bienvenues ! Consultez le [guide de contribution](doc
 ## 📄 Licence
 
 Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+---
+
+**🎯 Status:** ✅ Séparation backend/frontend terminée  
+**🚀 Prêt pour:** Déploiement en production  
+**📅 Dernière mise à jour:** Juin 2025
 
 ## 👨‍💻 Auteur
 

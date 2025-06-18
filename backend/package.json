@@ -1,0 +1,32 @@
+{
+  "name": "skullking-backend",
+  "version": "1.0.0",
+  "description": "Backend pour le jeu Skull King",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.9.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "prisma": "^6.9.0",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.7",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": ["skull-king", "game", "backend", "socket.io", "express"],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,9 +1,12 @@
-name: Deploy on Raspberry Pi
+name: Deploy to Raspberry Pi
 
 on:
   push:
     branches:
       - main
+
+  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -15,16 +18,19 @@ jobs:
           cd /home/sydnec/skullking_js
           git pull origin main
 
-      - name: Install dependencies
+      - name: Make SK script executable
         run: |
           cd /home/sydnec/skullking_js
-          npm install
+          chmod +x sk
 
-      - name: Build the app
+      - name: Deploy using SK script
         run: |
           cd /home/sydnec/skullking_js
-          npm run build
+          ./sk deploy
 
-      - name: Restart app with PM2
+      - name: Verify deployment
         run: |
-          pm2 reload skullking
+          cd /home/sydnec/skullking_js
+          sleep 10
+          ./sk status
+          ./sk api
