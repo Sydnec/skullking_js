@@ -58,7 +58,7 @@ export function useGameSocket({
     // In production, use relative URL (same origin)
     // In development, use localhost with backend port
     const socketUrl =
-      typeof window !== "undefined" && window.location.hostname !== "localhost"
+      process.env.NODE_ENV === 'production' || (typeof window !== "undefined" && window.location.hostname !== "localhost")
         ? "https://skullking-api.duckdns.org" // Backend auto-hébergé sur Raspberry Pi
         : `http://localhost:3001`; // Backend port
 
@@ -66,11 +66,13 @@ export function useGameSocket({
 
     // Initialize socket connection
     const socketInstance = io(socketUrl, {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"], // Try polling first, then upgrade to websocket
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
       timeout: 20000,
+      upgrade: true, // Allow transport upgrade
+      rememberUpgrade: false, // Don't remember failed websocket upgrade
     });
     socketInstance.on("connect", () => {
       console.log("Connected to socket server with ID:", socketInstance.id);

@@ -113,6 +113,19 @@ const io = new SocketIOServer(server, {
   allowEIO3: true
 });
 
+// Socket.IO connection logging
+io.on('connection', (socket) => {
+  logger.info(`New Socket.IO connection: ${socket.id} from ${socket.handshake.address}`);
+  
+  socket.on('disconnect', (reason) => {
+    logger.info(`Socket.IO disconnection: ${socket.id} - ${reason}`);
+  });
+  
+  socket.on('error', (error) => {
+    logger.error(`Socket.IO error: ${socket.id} - ${error.message}`);
+  });
+});
+
 logger.info('Setting up Socket.IO game handlers...');
 setupGameSocketHandlers(io);
 
