@@ -59,7 +59,7 @@ export function useGameSocket({
     // In development, use localhost with backend port
     const socketUrl =
       typeof window !== "undefined" && window.location.hostname !== "localhost"
-        ? "" // Use relative URL in production (same origin)
+        ? "https://skullking-api.duckdns.org" // Backend auto-hébergé sur Raspberry Pi
         : `http://localhost:3001`; // Backend port
 
     console.log("Connecting to socket at:", socketUrl || "same origin");

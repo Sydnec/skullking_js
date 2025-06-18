@@ -1,7 +1,5 @@
 import express from 'express';
 import { createServer } from 'http';
-import { createServer as createHttpsServer } from 'https';
-import { readFileSync } from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -13,40 +11,7 @@ import { logger } from './src/utils/logger.js';
 dotenv.config();
 
 const app = express();
-
-// Create server based on environment
-let server;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-
-if (NODE_ENV === 'production' && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) {
-  // HTTPS server for production with SSL certificates
-  try {
-    const httpsOptions = {
-      key: readFileSync(process.env.SSL_KEY_PATH),
-      cert: readFileSync(process.env.SSL_CERT_PATH)
-    };
-    
-    // Add certificate chain if provided
-    if (process.env.SSL_CA_PATH) {
-      httpsOptions.ca = readFileSync(process.env.SSL_CA_PATH);
-    }
-    
-    server = createHttpsServer(httpsOptions, app);
-    logger.success('HTTPS server configured with SSL certificates');
-  } catch (error) {
-    logger.error('Failed to load SSL certificates:', error.message);
-    logger.warn('Falling back to HTTP server');
-    server = createServer(app);
-  }
-} else {
-  // HTTP server for development or production without SSL
-  server = createServer(app);
-  if (NODE_ENV === 'production') {
-    logger.warn('Running in production mode without HTTPS. Consider adding SSL certificates.');
-  }
-}
-
-// Configuration
 const PORT = process.env.PORT || 3001;
 
 // Validate environment variables in production
@@ -57,29 +22,61 @@ if (NODE_ENV === 'production' && !process.env.DATABASE_URL) {
 
 // CORS configuration
 const corsOptions = {
-  origin: NODE_ENV === 'production' 
-    ? process.env.ALLOWED_ORIGINS?.split(',') || ['https://skullking-pcr.vercel.app']
-    : ['http://localhost:3000', 'http://localhost:3001'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  origin: (origin, callback) => {
+    // Allowed origins list
+    const allowedOrigins = NODE_ENV === 'production' 
+      ? (process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [
+          'https://skullking-pcr.vercel.app',
+          'https://skullking-api.duckdns.org'
+        ])
+      : [
+          'http://localhost:3000', 
+          'http://localhost:3001',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:3001'
+        ];
+
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is allowed
+    if (allowedOrigins.includes(origin)) {
+      logger.info(`CORS: Allowing origin ${origin}`);
+      return callback(null, true);
+    } else {
+      logger.warn(`CORS: Blocking origin ${origin}. Allowed origins: ${allowedOrigins.join(', ')}`);
+      return callback(new Error(`CORS policy: Origin ${origin} not allowed`), false);
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 200
 };
 
 // Middlewares
-// Force HTTPS in production
+// Force HTTPS redirect in production (only when behind nginx)
 if (NODE_ENV === 'production' && process.env.FORCE_HTTPS === 'true') {
   app.use((req, res, next) => {
-    if (req.header('x-forwarded-proto') !== 'https') {
-      res.redirect(`https://${req.header('host')}${req.url}`);
-    } else {
-      next();
+    // Check if request comes from nginx (X-Forwarded-Proto header)
+    if (req.header('x-forwarded-proto') && req.header('x-forwarded-proto') !== 'https') {
+      return res.redirect(`https://${req.header('host')}${req.url}`);
     }
+    next();
   });
 }
 
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// CORS debugging middleware (only in development)
+if (NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    logger.info(`${req.method} ${req.path} - Origin: ${req.get('Origin') || 'No origin'}`);
+    next();
+  });
+}
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
@@ -94,12 +91,16 @@ app.get('/health', (_req, res) => {
       used: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB`,
       total: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)}MB`
     },
-    environment: NODE_ENV
+    environment: NODE_ENV,
+    ssl: 'handled by nginx'
   });
 });
 
 // API routes
 app.use('/api', setupApiRoutes());
+
+// Create HTTP server (SSL is handled by nginx)
+const server = createServer(app);
 
 // Initialize Socket.IO
 const io = new SocketIOServer(server, {
@@ -112,9 +113,7 @@ const io = new SocketIOServer(server, {
   allowEIO3: true
 });
 
-logger.socket('Socket.IO server initialized');
-
-// Setup game logic handlers
+logger.info('Setting up Socket.IO game handlers...');
 setupGameSocketHandlers(io);
 
 // Error handling middleware
@@ -132,11 +131,12 @@ app.use('*', (_req, res) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-  const protocol = (NODE_ENV === 'production' && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) ? 'https' : 'http';
-  logger.success(`Backend server ready on ${protocol}://0.0.0.0:${PORT}`);
+  logger.success(`Backend server ready on http://0.0.0.0:${PORT}`);
   logger.info(`Environment: ${NODE_ENV}`);
-  logger.info(`Protocol: ${protocol.toUpperCase()}`);
-  logger.database(`Database: ${process.env.DATABASE_URL || 'Not configured'}`);
+  logger.info(`Protocol: HTTP (SSL handled by nginx)`);
+  if (NODE_ENV === 'production') {
+    logger.info('Production mode: HTTPS termination handled by nginx reverse proxy');
+  }
 });
 
 // Graceful shutdown handling
