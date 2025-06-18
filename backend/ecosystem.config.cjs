@@ -14,7 +14,12 @@ module.exports = {
     },
     env_production: {
       NODE_ENV: 'production',
-      PORT: 3001
+      PORT: 3001,
+      SSL_CERT_PATH: '/etc/ssl/certs/your-cert.crt',
+      SSL_KEY_PATH: '/etc/ssl/private/your-key.key',
+      SSL_CA_PATH: '/etc/ssl/certs/ca-bundle.crt',
+      FORCE_HTTPS: 'true',
+      ALLOWED_ORIGINS: 'https://skullking-pcr.vercel.app'
     },
     error_file: './logs/err.log',
     out_file: './logs/out.log',

@@ -7,6 +7,7 @@ Backend Express.js pour le jeu de cartes Skull King avec Socket.IO pour les inte
 - [Vue d'ensemble](#vue-densemble)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Configuration HTTPS](#configuration-https)
 - [Utilisation](#utilisation)
 - [Architecture](#architecture)
 - [API Documentation](#api-documentation)
@@ -95,6 +96,11 @@ DATABASE_URL="file:./prisma/dev.db"  # SQLite pour développement
 
 # CORS (Production uniquement)
 ALLOWED_ORIGINS="https://votre-domaine.com,https://autre-domaine.com"
+
+# SSL/HTTPS (Production)
+SSL_CERT_PATH=/path/to/certificate.crt
+SSL_KEY_PATH=/path/to/private.key
+FORCE_HTTPS=true
 ```
 
 ### Configuration de production
@@ -103,6 +109,41 @@ Pour la production, modifiez :
 - `NODE_ENV=production`
 - `DATABASE_URL` vers PostgreSQL
 - `ALLOWED_ORIGINS` avec vos domaines autorisés
+
+## 🔒 Configuration HTTPS
+
+Le backend supporte HTTPS en production pour sécuriser les communications.
+
+### Développement avec HTTPS
+
+```bash
+# Générer des certificats auto-signés
+npm run generate-ssl
+
+# Démarrer avec HTTPS
+npm run start:https
+```
+
+### Production avec certificats réels
+
+1. **Obtenir des certificats SSL** (Let's Encrypt recommandé) :
+```bash
+sudo certbot certonly --standalone -d yourdomain.com
+```
+
+2. **Configurer les variables d'environnement** :
+```env
+SSL_CERT_PATH=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+SSL_KEY_PATH=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+FORCE_HTTPS=true
+```
+
+3. **Démarrer avec PM2** :
+```bash
+pm2 start ecosystem.config.cjs --env production
+```
+
+📚 **Documentation complète** : Voir [HTTPS_README.md](./HTTPS_README.md) et [docs/HTTPS_SETUP.md](./docs/HTTPS_SETUP.md)
 
 ## 📖 Utilisation
 

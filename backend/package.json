@@ -6,7 +6,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:prod": "NODE_ENV=production node server.js",
+    "start:https": "NODE_ENV=production SSL_CERT_PATH=./ssl/localhost.crt SSL_KEY_PATH=./ssl/localhost.key node server.js",
     "dev": "node --watch server.js",
+    "generate-ssl": "./scripts/generate-ssl-cert.sh",
+    "setup-duckdns": "./scripts/setup-duckdns-letsencrypt.sh",
+    "test-duckdns": "./scripts/test-duckdns-setup.sh",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

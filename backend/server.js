@@ -1,5 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
+import { readFileSync } from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -11,11 +13,41 @@ import { logger } from './src/utils/logger.js';
 dotenv.config();
 
 const app = express();
-const server = createServer(app);
+
+// Create server based on environment
+let server;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+if (NODE_ENV === 'production' && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) {
+  // HTTPS server for production with SSL certificates
+  try {
+    const httpsOptions = {
+      key: readFileSync(process.env.SSL_KEY_PATH),
+      cert: readFileSync(process.env.SSL_CERT_PATH)
+    };
+    
+    // Add certificate chain if provided
+    if (process.env.SSL_CA_PATH) {
+      httpsOptions.ca = readFileSync(process.env.SSL_CA_PATH);
+    }
+    
+    server = createHttpsServer(httpsOptions, app);
+    logger.success('HTTPS server configured with SSL certificates');
+  } catch (error) {
+    logger.error('Failed to load SSL certificates:', error.message);
+    logger.warn('Falling back to HTTP server');
+    server = createServer(app);
+  }
+} else {
+  // HTTP server for development or production without SSL
+  server = createServer(app);
+  if (NODE_ENV === 'production') {
+    logger.warn('Running in production mode without HTTPS. Consider adding SSL certificates.');
+  }
+}
 
 // Configuration
 const PORT = process.env.PORT || 3001;
-const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Validate environment variables in production
 if (NODE_ENV === 'production' && !process.env.DATABASE_URL) {
@@ -34,6 +66,17 @@ const corsOptions = {
 };
 
 // Middlewares
+// Force HTTPS in production
+if (NODE_ENV === 'production' && process.env.FORCE_HTTPS === 'true') {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') !== 'https') {
+      res.redirect(`https://${req.header('host')}${req.url}`);
+    } else {
+      next();
+    }
+  });
+}
+
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -89,8 +132,10 @@ app.use('*', (_req, res) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
-  logger.success(`Backend server ready on http://0.0.0.0:${PORT}`);
+  const protocol = (NODE_ENV === 'production' && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) ? 'https' : 'http';
+  logger.success(`Backend server ready on ${protocol}://0.0.0.0:${PORT}`);
   logger.info(`Environment: ${NODE_ENV}`);
+  logger.info(`Protocol: ${protocol.toUpperCase()}`);
   logger.database(`Database: ${process.env.DATABASE_URL || 'Not configured'}`);
 });
 
