@@ -44,7 +44,6 @@ Le projet est organisé en **deux services indépendants** :
 La documentation complète est organisée en guides spécialisés :
 
 - **[🚀 Guide de déploiement](DEPLOYMENT-GUIDE.md)** - Déploiement production complet
-- **[📦 Rapport de completion](PROJECT-COMPLETION-REPORT.md)** - Statut final du projet
 - **[🏴‍☠️ Règles du jeu](docs/RULES.md)** - Règles officielles détaillées
 - **[🤝 Guide de contribution](docs/CONTRIBUTING.md)** - Comment contribuer au projet
 
