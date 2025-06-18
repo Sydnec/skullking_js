@@ -4,11 +4,31 @@
 # Usage: sk [command]
 
 # Auto-détection du répertoire du projet
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$SCRIPT_DIR"
+# Si le script est dans /usr/local/bin, on utilise le répertoire courant
+# Sinon, on utilise le répertoire du script
+if [[ "${BASH_SOURCE[0]}" == "/usr/local/bin/sk" ]]; then
+    PROJECT_DIR="$(pwd)"
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$SCRIPT_DIR"
+fi
+
 BACKEND_DIR="$PROJECT_DIR/backend"
 FRONTEND_DIR="$PROJECT_DIR/frontend"
 LOG_DIR="$BACKEND_DIR/logs"
+
+# Validation du répertoire de projet
+validate_project_directory() {
+    if [[ ! -d "$BACKEND_DIR" ]] || [[ ! -d "$FRONTEND_DIR" ]]; then
+        print_error "Ce répertoire ne semble pas être un projet Skull King valide."
+        print_error "Répertoires attendus :"
+        print_error "  - Backend: $BACKEND_DIR"
+        print_error "  - Frontend: $FRONTEND_DIR"
+        print_error ""
+        print_error "Assurez-vous d'être dans le répertoire racine du projet ou que les répertoires existent."
+        exit 1
+    fi
+}
 
 # Couleurs
 RED='\033[0;31m'
@@ -189,6 +209,7 @@ update_function() {
 
 case "$1" in
     dev)
+        validate_project_directory
         echo "🚀 Lancement du mode développement..."
         echo "Backend sur http://localhost:3001"
         echo "Frontend sur http://localhost:3000"
@@ -212,6 +233,7 @@ case "$1" in
         wait
         ;;
     build)
+        validate_project_directory
         echo "🏗️ Construction du frontend..."
         cd "$FRONTEND_DIR"
         print_step "Installation des dépendances..."
@@ -226,6 +248,7 @@ case "$1" in
         fi
         ;;
     start)
+        validate_project_directory
         echo "🚀 Démarrage de Skull King Backend..."
         cd "$BACKEND_DIR"
         pm2 start ecosystem.config.js --env production 2>/dev/null || {
