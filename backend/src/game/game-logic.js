@@ -373,25 +373,61 @@ function startPeriodicSave() {
 }
 
 // Validation function for card play legality
+/**
+ * Determine the leading suit for a trick, skipping escape cards
+ * Returns null if no suit-defining card has been played yet
+ */
+function getLeadingSuit(currentTrick) {
+  if (!currentTrick || currentTrick.cards.length === 0) {
+    return null;
+  }
+  
+  // Look through the cards in order to find the first non-escape card with a suit
+  for (const cardPlay of currentTrick.cards) {
+    const card = cardPlay.card;
+    
+    // Skip escape cards
+    if (card.type === 'ESCAPE') {
+      continue;
+    }
+    
+    // Skip tigress played as escape
+    if (card.type === 'TIGRESS' && cardPlay.tigressChoice === 'ESCAPE') {
+      continue;
+    }
+    
+    // If it's a number card, return its suit
+    if (card.type === 'NUMBER') {
+      return card.suit;
+    }
+    
+    // If it's any other special card (PIRATE, MERMAID, SKULL_KING, or TIGRESS as PIRATE), 
+    // there's no suit requirement
+    return null;
+  }
+  
+  // All cards played so far are escapes, no suit requirement yet
+  return null;
+}
+
 function isValidCardPlay(card, playerHand, currentTrick) {
   // First card of trick can always be played
   if (!currentTrick || currentTrick.cards.length === 0) {
     return { valid: true };
   }
   
-  const leadCard = currentTrick.cards[0].card;
-  
   // Special cards can always be played
   if (card.type !== 'NUMBER') {
     return { valid: true };
   }
   
-  // If leading card is also special (no suit), any card can be played
-  if (leadCard.type !== 'NUMBER') {
+  // Get the leading suit (skipping escape cards)
+  const leadSuit = getLeadingSuit(currentTrick);
+  
+  // If no suit has been established yet (all cards so far are escapes), any card can be played
+  if (!leadSuit) {
     return { valid: true };
   }
-  
-  const leadSuit = leadCard.suit;
   
   // If playing same suit, it's valid
   if (card.suit === leadSuit) {
