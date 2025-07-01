@@ -1625,6 +1625,37 @@ function resolveTrickInGameState(gameState) {
   
   logger.game(`Winner: ${winner.card.name} (${reason})`);
   
+  // Record capture events for bonus scoring
+  const captureEvents = [];
+  
+  // Check for special capture combinations
+  if (skullKingCards.length > 0 && mermaidCards.length > 0) {
+    // Mermaid captured Skull King
+    captureEvents.push({
+      capturerType: 'MERMAID',
+      capturedType: 'SKULL_KING',
+      winnerId: mermaidCards[0].playerId
+    });
+  } else if (skullKingCards.length > 0 && pirateCards.length > 0) {
+    // Skull King captured Pirates (one event per pirate)
+    for (let i = 0; i < pirateCards.length; i++) {
+      captureEvents.push({
+        capturerType: 'SKULL_KING',
+        capturedType: 'PIRATE',
+        winnerId: skullKingCards[0].playerId
+      });
+    }
+  } else if (mermaidCards.length > 0 && pirateCards.length > 0) {
+    // Pirates captured Mermaids (one event per mermaid)
+    for (let i = 0; i < mermaidCards.length; i++) {
+      captureEvents.push({
+        capturerType: 'PIRATE',
+        capturedType: 'MERMAID',
+        winnerId: pirateCards[0].playerId
+      });
+    }
+  }
+  
   // Award trick to winner
   const winningPlayer = gameState.players.find(p => p.id === winner.playerId);
   if (winningPlayer) {
@@ -1639,7 +1670,22 @@ function resolveTrickInGameState(gameState) {
     const trickCards = trick.cards.map(entry => entry.card);
     winningPlayer.capturedCards.push(...trickCards);
     
+    // Initialize captureEvents array if not exists
+    if (!winningPlayer.captureEvents) {
+      winningPlayer.captureEvents = [];
+    }
+    
+    // Add capture events to the winning player
+    winningPlayer.captureEvents.push(...captureEvents);
+    
     logger.game(`${winningPlayer.username} captured ${trickCards.length} cards: ${trickCards.map(c => c.name).join(', ')}`);
+    
+    if (captureEvents.length > 0) {
+      logger.game(`Capture events recorded for ${winningPlayer.username}:`);
+      captureEvents.forEach(event => {
+        logger.game(`  ${event.capturerType} captured ${event.capturedType}`);
+      });
+    }
   }
   
   logger.game(`${winningPlayer.username} wins the trick!`);
