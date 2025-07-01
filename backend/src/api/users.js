@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../database/prisma.js';
 import { isValidUsername } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
+import { isUsernameInUseByConnectedUsers } from '../game/game-logic.js';
 
 export const usersRouter = express.Router();
 
@@ -16,13 +17,14 @@ usersRouter.get('/', async (req, res) => {
       });
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { username: username.trim() }
-    });
+    const trimmedUsername = username.trim();
+    
+    // Vérifier uniquement si le pseudo est utilisé par quelqu'un de connecté via WebSocket
+    const isInUse = isUsernameInUseByConnectedUsers(trimmedUsername);
 
     res.json({
-      available: !existingUser,
-      username: username.trim()
+      available: !isInUse,
+      username: trimmedUsername
     });
   } catch (error) {
     logger.error('Error checking username availability', { error: error.message });
@@ -45,30 +47,45 @@ usersRouter.post('/', async (req, res) => {
 
     const trimmedUsername = username.trim();
 
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await prisma.user.findUnique({
-      where: { username: trimmedUsername }
-    });
-
-    if (existingUser) {
+    // Vérifier si l'utilisateur est connecté (au lieu de vérifier en BDD)
+    const isInUse = isUsernameInUseByConnectedUsers(trimmedUsername);
+    
+    if (isInUse) {
       return res.status(409).json({
-        error: 'Ce nom d\'utilisateur est déjà pris'
+        error: 'Ce nom d\'utilisateur est déjà pris par quelqu\'un de connecté'
       });
     }
 
-    // Créer l'utilisateur
-    const newUser = await prisma.user.create({
-      data: {
-        username: trimmedUsername,
-        isOnline: true
-      }
+    // Tenter de trouver un utilisateur existant en BDD avec ce nom
+    let user = await prisma.user.findUnique({
+      where: { username: trimmedUsername }
     });
+    
+    if (user) {
+      // L'utilisateur existe en BDD mais n'est pas connecté, on le réutilise
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { isOnline: true }
+      });
+      
+      logger.info(`Reusing existing user ${trimmedUsername} (${user.id})`);
+    } else {
+      // Créer un nouvel utilisateur
+      user = await prisma.user.create({
+        data: {
+          username: trimmedUsername,
+          isOnline: true
+        }
+      });
+      
+      logger.info(`Created new user ${trimmedUsername} (${user.id})`);
+    }
 
     res.json({
       user: {
-        id: newUser.id,
-        username: newUser.username,
-        isOnline: newUser.isOnline
+        id: user.id,
+        username: user.username,
+        isOnline: user.isOnline
       }
     });
   } catch (error) {

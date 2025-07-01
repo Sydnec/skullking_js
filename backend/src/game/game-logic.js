@@ -542,6 +542,42 @@ function calculateRoundScores(players, roundNumber) {
   });
 }
 
+// Function to check if a username is currently in use by connected users
+function isUsernameInUseByConnectedUsers(username) {
+  // Check all rooms for users with this username
+  for (const [roomId, users] of roomUsers.entries()) {
+    const userFound = users.find(user => user.username.toLowerCase() === username.toLowerCase());
+    if (userFound) {
+      logger.debug(`Username ${username} is in use by connected user in room ${roomId}`);
+      return true;
+    }
+  }
+  
+  // Also check active games for players with this username
+  for (const [roomId, gameState] of activeGames.entries()) {
+    // Check players
+    const playerFound = gameState.players.find(player => 
+      player.username.toLowerCase() === username.toLowerCase() && player.isOnline
+    );
+    if (playerFound) {
+      logger.debug(`Username ${username} is in use by online player in game ${roomId}`);
+      return true;
+    }
+    
+    // Check spectators
+    const spectatorFound = gameState.spectators?.find(spectator => 
+      spectator.username.toLowerCase() === username.toLowerCase() && spectator.isOnline
+    );
+    if (spectatorFound) {
+      logger.debug(`Username ${username} is in use by online spectator in game ${roomId}`);
+      return true;
+    }
+  }
+  
+  logger.debug(`Username ${username} is available (not used by any connected user)`);
+  return false;
+}
+
 // Socket.IO game handlers
 function setupGameSocketHandlers(io) {
   logger.info('Setting up Socket.IO game handlers...');
@@ -580,6 +616,15 @@ function setupGameSocketHandlers(io) {
         socket.emit('join-rejected', { 
           reason: 'Invalid data',
           message: 'Données manquantes pour rejoindre la partie.'
+        });
+        return;
+      }
+      
+      // Check if username is already in use
+      if (isUsernameInUseByConnectedUsers(username) && !forceSpectator) {
+        socket.emit('join-rejected', { 
+          reason: 'Username in use',
+          message: 'Ce nom d\'utilisateur est déjà pris. Veuillez en choisir un autre.'
         });
         return;
       }
@@ -1804,5 +1849,6 @@ export {
   dealCards,
   resolveTrick,
   isValidPlay,
-  calculateRoundScores
+  calculateRoundScores,
+  isUsernameInUseByConnectedUsers
 };
