@@ -158,6 +158,61 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
   const currentPlayer = gameState?.players.find((p: Player) => p.id === user.id);
   const currentRound = gameState?.currentRound;
 
+  // Sound alert when it's the player's turn
+  useEffect(() => {
+    if (!gameState || !currentPlayer || isSpectator) return;
+    
+    // Check if it's the player's turn to play a card (only during PLAYING phase, not when all cards are played)
+    const isMyTurn = gameState.gamePhase === 'PLAYING' && 
+                     gameState.currentRound?.currentPlayerId === currentPlayer.id;
+    
+    // Don't play sound if all cards have been played in the current trick (waiting for collection)
+    const allCardsPlayed = gameState.currentRound?.currentTrick?.cards.length === gameState.players.length;
+    
+    if (isMyTurn && !allCardsPlayed) {
+      // Create and play a pleasant notification sound
+      try {
+        // Create a pleasant melody using Web Audio API
+        const AudioContextClass = window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextClass) throw new Error('AudioContext not supported');
+        const audioContext = new AudioContextClass();
+        
+        // Create a gentle, pleasant notification melody
+        const playNote = (frequency: number, startTime: number, duration: number, volume: number = 0.06) => {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          // Use a softer sine wave for a gentle sound
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(frequency, startTime);
+          
+          // Very smooth and gentle envelope
+          gainNode.gain.setValueAtTime(0, startTime);
+          gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.05);
+          gainNode.gain.exponentialRampToValueAtTime(volume * 0.3, startTime + duration * 0.8);
+          gainNode.gain.linearRampToValueAtTime(0.001, startTime + duration);
+          
+          oscillator.start(startTime);
+          oscillator.stop(startTime + duration);
+        };
+        
+        const now = audioContext.currentTime;
+        // Play a gentle ascending melody: C4-E4-G4-C5 (softer octave)
+        playNote(261.63, now, 0.3, 0.05);         // C4 (lower, softer)
+        playNote(329.63, now + 0.15, 0.3, 0.04);  // E4
+        playNote(392.00, now + 0.3, 0.35, 0.035); // G4
+        playNote(523.25, now + 0.5, 0.4, 0.03);   // C5 (gentle finish)
+        
+      } catch (error) {
+        // Fallback: try to use a simple beep if available
+        console.warn('Could not play turn notification sound:', error);
+      }
+    }
+  }, [gameState, currentPlayer, isSpectator]);
+
   const getGamePhaseText = (phase: string) => {
     switch (phase) {
       case 'WAITING': return 'En attente';
@@ -615,7 +670,6 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
                       <div key={`${playerId}_${card.id}`} className="text-center">
                         <div className="text-xs mb-1 text-gray-600 dark:text-gray-400">
                           {player?.username}
-                          {isWinningCard && <span className="ml-1 text-yellow-600 dark:text-yellow-400">👑</span>}
                         </div>
                         <CardImage 
                           card={card} 
