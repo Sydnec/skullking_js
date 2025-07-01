@@ -673,7 +673,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
                         </div>
                         <CardImage 
                           card={card} 
-                          className={`w-32 h-48 ${isWinningCard ? 'ring-2 ring-yellow-400 ring-opacity-70 shadow-lg' : ''}`}
+                          className={`w-32 h-48 ${isWinningCard ? 'ring-4 ring-yellow-400 ring-opacity-70 shadow-lg rounded-lg' : ''}`}
                           tigressChoice={tigressChoice}
                         />
                       </div>
