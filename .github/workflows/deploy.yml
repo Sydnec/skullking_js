@@ -18,6 +18,17 @@ jobs:
           cd /home/sydnec/skullking_js
           git pull origin main
 
+      - name: Fix line endings with dos2unix
+        run: |
+          cd /home/sydnec/skullking_js
+          # Install dos2unix if not available
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          # Fix line endings for shell scripts
+          dos2unix sk
+          dos2unix backend/ssl-renewal.sh
+          # Fix any other shell scripts in the project
+          find . -name "*.sh" -type f -exec dos2unix {} \;
+
       - name: Make SK script executable
         run: |
           cd /home/sydnec/skullking_js
