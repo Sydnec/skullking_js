@@ -76,7 +76,7 @@ export interface SkullKingGameState {
   roomStatus: 'LOBBY' | 'GAME_STARTED' | 'GAME_ENDED'; // Statut de la room
   currentRound: Round | null;
   maxRounds: number;
-  gamePhase: 'WAITING' | 'BIDDING' | 'PLAYING' | 'ROUND_END' | 'GAME_END';
+  gamePhase: 'WAITING' | 'BIDDING' | 'PLAYING' | 'TRICK_WAITING' | 'ROUND_END' | 'GAME_END';
   winnerId: string | null;
   deck: Card[];
   settings?: {
@@ -90,7 +90,7 @@ export interface SkullKingGameState {
 }
 
 export interface GameAction {
-  type: 'BID' | 'PLAY_CARD' | 'START_GAME' | 'START_ROUND' | 'END_ROUND' | 'SEND_CHAT_MESSAGE';
+  type: 'BID' | 'PLAY_CARD' | 'START_GAME' | 'START_ROUND' | 'END_ROUND' | 'SEND_CHAT_MESSAGE' | 'COLLECT_TRICK';
   playerId: string;
   payload?: {
     bid?: number;

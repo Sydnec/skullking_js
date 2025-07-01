@@ -163,6 +163,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
       case 'WAITING': return 'En attente';
       case 'BIDDING': return 'Phase de paris';
       case 'PLAYING': return 'Phase de jeu';
+      case 'TRICK_WAITING': return 'En attente du ramassage';
       case 'ROUND_END': return 'Fin de manche';
       case 'GAME_END': return 'Partie terminée';
       default: return phase;
@@ -217,6 +218,20 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
     setShowTigressChoice(false);
     setPendingTigressCard(null);
   };
+
+  const handleCollectTrick = () => {
+    if (!gameState || !currentPlayer) return;
+    
+    // Send collect trick action
+    sendGameAction({
+      type: 'COLLECT_TRICK',
+      payload: {}
+    });
+    
+    // Show success notification
+    showSuccess('Pli ramassé !', 'Action confirmée');
+  };
+
   const getCardDisplay = (card: Card) => {
     // Check if it's the player's turn and in playing phase
     const isMyTurn = gameState?.gamePhase === 'PLAYING' && 
@@ -484,7 +499,7 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
               }
             </h2>
             
-            <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="flex-1 flex flex-col min-h-0">
             
             {/* Lobby Info */}
             {gameState.roomStatus === 'LOBBY' && (
@@ -550,24 +565,41 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
               </div>
             )}
 
-            {/* Current Trick - During PLAYING phase */}
-            {gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'PLAYING' && (
+            {/* Current Trick - During PLAYING and TRICK_WAITING phases */}
+            {gameState.roomStatus === 'GAME_STARTED' && (gameState.gamePhase === 'PLAYING' || gameState.gamePhase === 'TRICK_WAITING') && (
               <div>
-                {/* Turn indicator */}
-                {gameState.currentRound?.currentPlayerId && (
+                {/* Turn indicator - Show different content based on game phase */}
+                {gameState.gamePhase === 'PLAYING' && gameState.currentRound?.currentPlayerId && (
                   <div className="mb-3 text-center">
                     {(() => {
                       const currentTurnPlayer = gameState.players.find(p => p.id === gameState.currentRound?.currentPlayerId);
                       const isMyTurn = currentTurnPlayer?.id === currentPlayer?.id;
                       return (
-                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                        <div className={`inline-flex items-center gap-3 px-4 py-2.5 rounded-full text-sm font-semibold shadow-md ${
                           isMyTurn 
                             ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-2 border-green-400' 
-                            : 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                            : 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-2 border-blue-300'
                         }`}>
-                          <span className="text-sm">{isMyTurn ? '👆' : '⏳'}</span>
-                          <span>
+                          <span className="text-lg">{isMyTurn ? '👆' : '⏳'}</span>
+                          <span className="font-medium">
                             {isMyTurn ? 'À votre tour !' : `Tour de ${currentTurnPlayer?.username}`}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+                
+                {/* Trick completion indicator during TRICK_WAITING */}
+                {gameState.gamePhase === 'TRICK_WAITING' && gameState.currentRound?.currentTrick?.winnerId && (
+                  <div className="mb-3 text-center">
+                    {(() => {
+                      const trickWinner = gameState.players.find(p => p.id === gameState.currentRound?.currentTrick?.winnerId);
+                      return (
+                        <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-full text-sm font-semibold shadow-md bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-2 border-yellow-400">
+                          <span className="text-lg">🏆</span>
+                          <span className="font-medium">
+                            {trickWinner?.username} a remporté le pli !
                           </span>
                         </div>
                       );
@@ -578,14 +610,16 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
                 <div className="flex flex-wrap gap-3 justify-center">
                   {currentRound?.currentTrick?.cards.map(({ playerId, card, tigressChoice }: { playerId: string; card: Card; tigressChoice?: 'PIRATE' | 'ESCAPE' }) => {
                     const player = gameState.players.find((p: Player) => p.id === playerId);
+                    const isWinningCard = gameState.gamePhase === 'TRICK_WAITING' && playerId === gameState.currentRound?.currentTrick?.winnerId;
                     return (
                       <div key={`${playerId}_${card.id}`} className="text-center">
                         <div className="text-xs mb-1 text-gray-600 dark:text-gray-400">
                           {player?.username}
+                          {isWinningCard && <span className="ml-1 text-yellow-600 dark:text-yellow-400">👑</span>}
                         </div>
                         <CardImage 
                           card={card} 
-                          className="w-32 h-48"
+                          className={`w-32 h-48 ${isWinningCard ? 'ring-2 ring-yellow-400 ring-opacity-70 shadow-lg' : ''}`}
                           tigressChoice={tigressChoice}
                         />
                       </div>
@@ -727,6 +761,44 @@ export default function GameRoom({ user, roomId, onLeaveRoom, forceSpectator = f
                     ))}
                   </div>
                 </div>
+              </div>
+              
+              {/* Section du bas - Placeholder pour maintenir la structure */}
+              <div className="opacity-0">
+                {/* Espace réservé pour maintenir l'alignement */}
+              </div>
+            </div>
+          )}
+
+          {/* Actions - For TRICK_WAITING phase */}
+          {!isSpectator && currentPlayer && gameState.roomStatus === 'GAME_STARTED' && gameState.gamePhase === 'TRICK_WAITING' && (
+            <div className="flex flex-col h-full justify-between min-h-[300px]">
+              {/* Section du milieu - Bouton d'action ou message d'attente */}
+              <div className="flex-1 flex flex-col justify-center">
+                {gameState.currentRound?.currentTrick?.winnerId === currentPlayer?.id ? (
+                  // C'est le gagnant du pli
+                  <div className="text-center">
+                    <button
+                      onClick={handleCollectTrick}
+                      className="mx-auto bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-md transform hover:scale-105 active:scale-95 flex items-center gap-2"
+                    >
+                      <span className="text-lg">🤲</span>
+                      <span>Ramasser le pli</span>
+                    </button>
+                  </div>
+                ) : (
+                  // Un autre joueur a gagné le pli
+                  <div className="text-center text-gray-600 dark:text-gray-400">
+                    <div className="mb-3">
+                      <div className="inline-flex items-center gap-2 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-2 rounded-md border border-yellow-200 dark:border-yellow-700">
+                        <span className="text-sm">⏳</span>
+                        <span className="text-xs font-medium text-yellow-800 dark:text-yellow-200">
+                          En attente que {gameState.players.find(p => p.id === gameState.currentRound?.currentTrick?.winnerId)?.username} ramasse le pli...
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Section du bas - Placeholder pour maintenir la structure */}

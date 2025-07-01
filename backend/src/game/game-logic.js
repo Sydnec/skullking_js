@@ -15,7 +15,7 @@ const GAME_CONFIG = {
   SAVE_INTERVAL: 60000, // 1 minute
   CLEANUP_DELAY: 600000, // 10 minutes
   RECONNECTION_TIMEOUT: 1800000, // 30 minutes
-  TRICK_DISPLAY_DELAY: 4000 // 4 seconds - Time to show completed trick before moving to next
+  TRICK_DISPLAY_DELAY: 30000 // 30 seconds - Fallback timeout if player doesn't collect trick
 };
 
 // Scoring constants
@@ -949,6 +949,8 @@ function setupGameSocketHandlers(io) {
         } else if (type === 'PLAY_CARD') {
           logger.debug(`gameAction payload:`, payload);
           actionResult = handlePlayCard(gameState, player, payload.cardId, payload.tigressChoice);
+        } else if (type === 'COLLECT_TRICK') {
+          actionResult = handleCollectTrick(gameState, player);
         }        // Check if action returned an error (for validation errors)
         if (actionResult && actionResult.error) {
           logger.warn(`Action ${type} validation error: ${actionResult.error}`);
@@ -989,100 +991,49 @@ function setupGameSocketHandlers(io) {
             completedTrick: actionResult.trickWinner.completedTrick
           });
 
-          // Wait 2 seconds before resetting the current trick and sending the resolved game state
+          // Change game phase to waiting for trick collection
+          gameState.gamePhase = 'TRICK_WAITING';
+          
+          // Send updated game state immediately to show the "Collect Trick" button
+          await saveGameState(roomId, gameState);
+          io.to(roomId).emit('game-updated', gameState);
+          
+          // Set a fallback timeout in case the player doesn't collect the trick
           setTimeout(async () => {
-            logger.game(`Resetting current trick and sending resolved game state after display delay`);
-            
-            // Now move the completed trick to history
-            const completedTrick = { ...gameState.currentRound.currentTrick };
-            gameState.currentRound.tricks.push(completedTrick);
-            
-            // Check if round is complete after moving trick to history
-            const totalCardsPerPlayer = gameState.currentRound.number;
-            const tricksPlayed = gameState.currentRound.tricks.length;
-            
-            if (tricksPlayed === totalCardsPerPlayer) {
-              // Round is complete, calculate scores
-              calculateRoundScoresInGameState(gameState);
+            // Check if the game is still waiting for trick collection
+            if (gameState.gamePhase === 'TRICK_WAITING') {
+              logger.game(`Fallback timeout: automatically collecting trick for ${actionResult.trickWinner.playerName}`);
               
-              // Check if game is complete
-              if (gameState.currentRound.number >= (gameState.settings?.roundsToPlay || 10)) {
-                gameState.gamePhase = 'GAME_END';
-                
-                // Update room status to FINISHED in database
-                try {
-                  await prisma.room.update({
-                    where: { code: roomId },
-                    data: { status: 'FINISHED' }
-                  });
-                  logger.database(`Room ${roomId} status updated to FINISHED in database`);
-                } catch (error) {
-                  logger.error(`Error updating room status to FINISHED for ${roomId}`, { error: error.message });
-                }
-              } else {
-                // Start next round
-                gameState.currentRound.number++;
-                gameState.gamePhase = 'BIDDING';
-                
-                // Calculate dealer index for this round (rotates each round)
-                const dealerIndex = (gameState.currentRound.number - 1) % gameState.players.length;
-                const dealerId = gameState.players[dealerIndex].id;
-                
-                // Reset round state
-                gameState.currentRound.tricks = [];
-                gameState.currentRound.currentPlayerId = dealerId; // Dealer starts the round
-                gameState.currentRound.dealerId = dealerId;
-                gameState.players.forEach(p => {
-                  p.bid = null;
-                  p.tricksWon = 0;
-                  p.isReady = false;
-                  p.capturedCards = [];
-                });
-                
-                logger.game(`Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
-                
-                // Create a fresh new deck for each round
-                gameState.deck = createDeck();
-                
-                // Deal new cards
-                const dealResult = dealCards(gameState.deck, gameState.players, gameState.currentRound.number);
-                gameState.players = dealResult.players;
-                
-                // Check if we had to adjust the number of cards dealt
-                if (dealResult.actualCardsDealt < gameState.currentRound.number) {
-                  logger.warn(`Round ${gameState.currentRound.number}: Adjusted cards per player from ${gameState.currentRound.number} to ${dealResult.actualCardsDealt} due to deck limitations`);
+              // Find the trick winner
+              const trickWinner = gameState.players.find(p => p.id === actionResult.trickWinner.playerId);
+              if (trickWinner) {
+                // Automatically collect the trick
+                const collectionResult = processTrickCollection(gameState);
+                if (collectionResult.success) {
+                  await saveGameState(roomId, gameState);
+                  io.to(roomId).emit('game-updated', gameState);
                   
-                  // Send warning notification to all players
-                  sendToastNotification(io, roomId, 'warning', 
-                    `Manche ${gameState.currentRound.number}: Nombre de cartes ajusté à ${dealResult.actualCardsDealt} par joueur (paquet insuffisant)`, 
-                    '⚠️ Ajustement automatique'
+                  // Send notification about automatic collection
+                  sendToastNotification(io, roomId, 'info', 
+                    `${actionResult.trickWinner.playerName} a automatiquement ramassé le pli`, 
+                    '⏰ Temps écoulé'
                   );
                 }
               }
-              
-              // Reset current trick regardless
-              gameState.currentRound.currentTrick = {
-                id: 'trick_1',
-                cards: [],
-                winnerId: null,
-                leadSuit: null
-              };
-            } else {
-              // Reset the current trick for the next one
-              gameState.currentRound.currentTrick = {
-                id: `trick_${gameState.currentRound.tricks.length + 1}`,
-                cards: [],
-                winnerId: null,
-                leadSuit: null
-              };
             }
-            
-            // Save the updated game state
-            await saveGameState(roomId, gameState);
-            
-            // Send the resolved game state
-            io.to(roomId).emit('game-updated', gameState);
-          }, GAME_CONFIG.TRICK_DISPLAY_DELAY); // Use the constant for display delay
+          }, GAME_CONFIG.TRICK_DISPLAY_DELAY); // Fallback timeout
+        } else if (type === 'COLLECT_TRICK' && actionResult && actionResult.success && actionResult.collected) {
+          // Trick was manually collected by the winner
+          logger.game(`Trick manually collected by ${player.username}`);
+          
+          // Send updated game state immediately
+          io.to(roomId).emit('game-updated', gameState);
+          
+          // Send notification about manual collection
+          sendToastNotification(io, roomId, 'success', 
+            `${player.username} a ramassé le pli !`, 
+            '✅ Pli ramassé'
+          );
         } else {
           // For other actions, send updated game state immediately
           io.to(roomId).emit('game-updated', gameState);
@@ -1423,6 +1374,101 @@ function handlePlayCard(gameState, player, cardId, tigressChoice = null) {
   }
   
   return { success: true };
+}
+
+function handleCollectTrick(gameState, player) {
+  // Verify that we're in the correct phase
+  if (gameState.gamePhase !== 'TRICK_WAITING') {
+    return { error: 'Aucun pli à ramasser pour le moment' };
+  }
+  
+  // Verify that the current trick has a winner
+  if (!gameState.currentRound.currentTrick.winnerId) {
+    return { error: 'Le pli n\'a pas encore été résolu' };
+  }
+  
+  // Verify that the player is the trick winner
+  if (gameState.currentRound.currentTrick.winnerId !== player.id) {
+    const winnerName = gameState.players.find(p => p.id === gameState.currentRound.currentTrick.winnerId)?.username;
+    return { error: `Seul ${winnerName} peut ramasser ce pli` };
+  }
+  
+  logger.game(`${player.username} collects the trick`);
+  
+  // Process the trick collection
+  return processTrickCollection(gameState);
+}
+
+function processTrickCollection(gameState) {
+  // Move the completed trick to history
+  const completedTrick = { ...gameState.currentRound.currentTrick };
+  gameState.currentRound.tricks.push(completedTrick);
+  
+  // Check if round is complete
+  const totalCardsPerPlayer = gameState.currentRound.number;
+  const tricksPlayed = gameState.currentRound.tricks.length;
+  
+  if (tricksPlayed === totalCardsPerPlayer) {
+    // Round is complete, calculate scores
+    calculateRoundScoresInGameState(gameState);
+    
+    // Check if game is complete
+    if (gameState.currentRound.number >= (gameState.settings?.roundsToPlay || 10)) {
+      gameState.gamePhase = 'GAME_END';
+    } else {
+      // Start next round
+      gameState.currentRound.number++;
+      gameState.gamePhase = 'BIDDING';
+      
+      // Calculate dealer index for next round (rotates each round)
+      const dealerIndex = (gameState.currentRound.number - 1) % gameState.players.length;
+      const dealerId = gameState.players[dealerIndex].id;
+      
+      // Reset round state
+      gameState.currentRound.tricks = [];
+      gameState.currentRound.currentPlayerId = dealerId;
+      gameState.currentRound.dealerId = dealerId;
+      gameState.players.forEach(p => {
+        p.bid = null;
+        p.tricksWon = 0;
+        p.isReady = false;
+        p.capturedCards = [];
+      });
+      
+      logger.game(`Starting Round ${gameState.currentRound.number} - Dealer: ${gameState.players[dealerIndex].username}`);
+      
+      // Create a fresh new deck for each round
+      gameState.deck = createDeck();
+      
+      // Deal new cards
+      const dealResult = dealCards(gameState.deck, gameState.players, gameState.currentRound.number);
+      gameState.players = dealResult.players;
+    }
+    
+    // Reset current trick
+    gameState.currentRound.currentTrick = {
+      id: 'trick_1',
+      cards: [],
+      winnerId: null,
+      leadSuit: null
+    };
+  } else {
+    // Continue with next trick
+    gameState.gamePhase = 'PLAYING';
+    
+    // Reset the current trick for the next one
+    const nextTrickId = `trick_${gameState.currentRound.tricks.length + 1}`;
+    gameState.currentRound.currentTrick = {
+      id: nextTrickId,
+      cards: [],
+      winnerId: null,
+      leadSuit: null
+    };
+    
+    logger.game(`Starting next trick: ${nextTrickId}`);
+  }
+  
+  return { success: true, collected: true };
 }
 
 function resolveTrickInGameState(gameState) {
