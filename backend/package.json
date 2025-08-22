@@ -1,6 +1,6 @@
 {
   "name": "skullking-backend",
-  "version": "1.0.9",
+  "version": "1.0.1",
   "description": "Backend pour le jeu Skull King",
   "type": "module",
   "main": "server.js",

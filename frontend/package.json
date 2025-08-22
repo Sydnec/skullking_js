@@ -1,6 +1,6 @@
 {
   "name": "skullking-frontend",
-  "version": "1.0.9",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "scripts": {
