@@ -1,0 +1,315 @@
+name: 🔍 Skull King Code Quality
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 6 * * 1'  # Analyse hebdomadaire le lundi à 6h
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  security:
+    name: 🛡️ Audit Sécurité
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 🛡️ Backend security audit
+        run: |
+          cd backend
+          npm ci
+          npm audit --audit-level high
+          
+      - name: 🛡️ Frontend security audit
+        run: |
+          cd frontend
+          npm ci
+          npm audit --audit-level high
+          
+      - name: 🔍 Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          config: |
+            name: "CodeQL Config"
+            queries:
+              - uses: security-and-quality
+          
+      - name: 🏗️ Autobuild
+        uses: github/codeql-action/autobuild@v3
+        
+      - name: 📊 Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  lint:
+    name: 🔍 Analyse Statique
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 🔍 Lint backend
+        run: |
+          cd backend
+          npm ci
+          npm run lint
+          
+      - name: 🔍 Lint frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run lint
+          
+      - name: 🎨 Check TypeScript
+        run: |
+          cd frontend
+          npx tsc --noEmit
+          
+      - name: 📏 Check code formatting
+        run: |
+          cd backend && npx prettier --check . || true
+          cd ../frontend && npx prettier --check . || true
+
+  dependencies:
+    name: 📦 Analyse Dépendances
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📊 Check outdated packages
+        run: |
+          echo "## 📦 Backend Dependencies" > deps-report.md
+          cd backend
+          npm outdated --json > ../backend-deps.json || true
+          
+          echo "## 📦 Frontend Dependencies" >> ../deps-report.md
+          cd ../frontend
+          npm outdated --json > ../frontend-deps.json || true
+          
+      - name: 🔍 License compliance check
+        run: |
+          cd backend
+          npx license-checker --json > ../backend-licenses.json || true
+          cd ../frontend
+          npx license-checker --json > ../frontend-licenses.json || true
+          
+      - name: 📤 Upload dependency reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-analysis
+          path: |
+            *-deps.json
+            *-licenses.json
+            deps-report.md
+
+  performance:
+    name: ⚡ Analyse Performance
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 🏗️ Build analysis
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          
+          # Analyse de la taille du bundle
+          npx bundlephobia-cli package.json > ../bundle-analysis.txt || true
+          
+      - name: 📊 Bundle size analysis
+        run: |
+          cd frontend
+          
+          # Afficher la taille des assets
+          echo "## 📦 Taille du Bundle" > ../performance-report.md
+          if [ -d ".next/static" ]; then
+            echo "### JavaScript:" >> ../performance-report.md
+            find .next/static -name "*.js" -exec ls -lh {} \; | head -10 >> ../performance-report.md
+            echo "### CSS:" >> ../performance-report.md
+            find .next/static -name "*.css" -exec ls -lh {} \; >> ../performance-report.md
+          fi
+          
+      - name: 📤 Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-analysis
+          path: |
+            bundle-analysis.txt
+            performance-report.md
+
+  complexity:
+    name: 🧮 Complexité du Code
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📊 Install analysis tools
+        run: |
+          npm install -g plato jshint
+          
+      - name: 🧮 Analyze backend complexity
+        run: |
+          cd backend
+          plato -r -d ../backend-complexity src/ || true
+          
+      - name: 🧮 Analyze frontend complexity
+        run: |
+          cd frontend
+          plato -r -d ../frontend-complexity src/ || true
+          
+      - name: 📏 Generate metrics report
+        run: |
+          echo "## 🧮 Analyse de Complexité" > complexity-report.md
+          echo "" >> complexity-report.md
+          
+          # Compter les lignes de code
+          echo "### 📊 Statistiques Générales" >> complexity-report.md
+          echo "- Backend: $(find backend/src -name "*.js" | xargs wc -l | tail -1 | awk '{print $1}') lignes" >> complexity-report.md
+          echo "- Frontend: $(find frontend/src -name "*.{js,ts,tsx}" | xargs wc -l | tail -1 | awk '{print $1}') lignes" >> complexity-report.md
+          
+          # Compter les fichiers
+          echo "- Fichiers backend: $(find backend/src -name "*.js" | wc -l)" >> complexity-report.md
+          echo "- Fichiers frontend: $(find frontend/src -name "*.{js,ts,tsx}" | wc -l)" >> complexity-report.md
+          
+      - name: 📤 Upload complexity reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: complexity-analysis
+          path: |
+            *-complexity/
+            complexity-report.md
+
+  documentation:
+    name: 📚 Qualité Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📝 Check documentation completeness
+        run: |
+          echo "## 📚 Analyse Documentation" > doc-report.md
+          echo "" >> doc-report.md
+          
+          # Vérifier les fichiers README
+          echo "### 📄 Fichiers de Documentation" >> doc-report.md
+          [ -f "README.md" ] && echo "- ✅ README.md principal" >> doc-report.md || echo "- ❌ README.md principal manquant" >> doc-report.md
+          [ -f "backend/README.md" ] && echo "- ✅ README.md backend" >> doc-report.md || echo "- ⚠️ README.md backend manquant" >> doc-report.md
+          [ -f "frontend/README.md" ] && echo "- ✅ README.md frontend" >> doc-report.md || echo "- ⚠️ README.md frontend manquant" >> doc-report.md
+          [ -f "CONTRIBUTING.md" ] && echo "- ✅ CONTRIBUTING.md" >> doc-report.md || echo "- ⚠️ CONTRIBUTING.md manquant" >> doc-report.md
+          [ -f "docs/API.md" ] && echo "- ✅ Documentation API" >> doc-report.md || echo "- ⚠️ Documentation API manquante" >> doc-report.md
+          
+          # Vérifier la longueur des README
+          echo "" >> doc-report.md
+          echo "### 📏 Taille des Documentations" >> doc-report.md
+          [ -f "README.md" ] && echo "- README principal: $(wc -l < README.md) lignes" >> doc-report.md
+          [ -f "backend/README.md" ] && echo "- README backend: $(wc -l < backend/README.md) lignes" >> doc-report.md
+          [ -f "frontend/README.md" ] && echo "- README frontend: $(wc -l < frontend/README.md) lignes" >> doc-report.md
+          
+      - name: 🔍 Check JSDoc coverage
+        run: |
+          cd backend
+          npm ci
+          
+          # Analyser la couverture JSDoc
+          echo "" >> ../doc-report.md
+          echo "### 📖 Couverture JSDoc" >> ../doc-report.md
+          
+          # Compter les fonctions documentées vs non documentées
+          TOTAL_FUNCTIONS=$(grep -r "function\|=>" src/ --include="*.js" | wc -l)
+          DOCUMENTED_FUNCTIONS=$(grep -r "/\*\*" src/ --include="*.js" | wc -l)
+          
+          echo "- Fonctions totales: $TOTAL_FUNCTIONS" >> ../doc-report.md
+          echo "- Fonctions documentées: $DOCUMENTED_FUNCTIONS" >> ../doc-report.md
+          
+          if [ $TOTAL_FUNCTIONS -gt 0 ]; then
+            COVERAGE=$((DOCUMENTED_FUNCTIONS * 100 / TOTAL_FUNCTIONS))
+            echo "- Couverture documentation: ${COVERAGE}%" >> ../doc-report.md
+          fi
+          
+      - name: 📤 Upload documentation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-analysis
+          path: doc-report.md
+
+  summary:
+    name: 📋 Résumé Qualité
+    runs-on: ubuntu-latest
+    needs: [security, lint, dependencies, performance, complexity, documentation]
+    if: always()
+    
+    steps:
+      - name: 📋 Generate quality summary
+        run: |
+          echo "# 🔍 Rapport Qualité Skull King" > quality-summary.md
+          echo "" >> quality-summary.md
+          echo "## 📊 Statuts des Analyses" >> quality-summary.md
+          echo "- 🛡️ Sécurité: ${{ needs.security.result }}" >> quality-summary.md
+          echo "- 🔍 Lint: ${{ needs.lint.result }}" >> quality-summary.md
+          echo "- 📦 Dépendances: ${{ needs.dependencies.result }}" >> quality-summary.md
+          echo "- ⚡ Performance: ${{ needs.performance.result }}" >> quality-summary.md
+          echo "- 🧮 Complexité: ${{ needs.complexity.result }}" >> quality-summary.md
+          echo "- 📚 Documentation: ${{ needs.documentation.result }}" >> quality-summary.md
+          echo "" >> quality-summary.md
+          echo "## 🎯 Actions Recommandées" >> quality-summary.md
+          echo "1. Consulter les rapports d'artefacts pour les détails" >> quality-summary.md
+          echo "2. Corriger les problèmes de sécurité identifiés" >> quality-summary.md
+          echo "3. Mettre à jour les dépendances obsolètes" >> quality-summary.md
+          echo "4. Améliorer la documentation manquante" >> quality-summary.md
+          
+      - name: 📤 Upload quality summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-summary
+          path: quality-summary.md

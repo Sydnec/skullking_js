@@ -1,0 +1,136 @@
+name: 📦 Skull King Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: 🚀 Create Release
+    runs-on: self-hosted
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: 📋 Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+          
+      - name: 📋 Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: 🏗️ Build frontend
+        run: |
+          cd frontend
+          npm run build
+          
+      - name: 📝 Generate changelog
+        id: changelog
+        run: |
+          echo "## 🏴‍☠️ Skull King - Changelog" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          
+          # Récupérer les commits depuis le dernier tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          
+          if [ -n "$LAST_TAG" ]; then
+            echo "### ✨ Nouveautés depuis $LAST_TAG" >> RELEASE_NOTES.md
+            git log ${LAST_TAG}..HEAD --pretty=format:"- %s" >> RELEASE_NOTES.md
+          else
+            echo "### ✨ Première release" >> RELEASE_NOTES.md
+            echo "- 🏴‍☠️ Jeu Skull King complet" >> RELEASE_NOTES.md
+            echo "- 🎮 Interface web moderne" >> RELEASE_NOTES.md
+            echo "- 🔗 API WebSocket temps réel" >> RELEASE_NOTES.md
+            echo "- 🛠️ Script de gestion unifié \`sk\`" >> RELEASE_NOTES.md
+            echo "- 📊 Système de monitoring" >> RELEASE_NOTES.md
+            echo "- 💾 Sauvegardes automatiques" >> RELEASE_NOTES.md
+          fi
+          
+          echo "" >> RELEASE_NOTES.md
+          echo "### 🚀 Installation rapide" >> RELEASE_NOTES.md
+          echo "\`\`\`bash" >> RELEASE_NOTES.md
+          echo "# Backend uniquement" >> RELEASE_NOTES.md
+          echo "git clone https://github.com/sydnec/skullking_js.git" >> RELEASE_NOTES.md
+          echo "cd skullking_js" >> RELEASE_NOTES.md
+          echo "./sk deploy" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "# Avec frontend" >> RELEASE_NOTES.md
+          echo "./sk deploy-full" >> RELEASE_NOTES.md
+          echo "\`\`\`" >> RELEASE_NOTES.md
+          
+          echo "" >> RELEASE_NOTES.md
+          echo "### 🎮 Fonctionnalités" >> RELEASE_NOTES.md
+          echo "- **Backend**: API REST + WebSocket sur port 3001" >> RELEASE_NOTES.md
+          echo "- **Frontend**: Interface Next.js sur port 3000" >> RELEASE_NOTES.md
+          echo "- **Base de données**: SQLite avec Prisma ORM" >> RELEASE_NOTES.md
+          echo "- **Monitoring**: PM2 + script \`sk\` unifié" >> RELEASE_NOTES.md
+          
+      - name: 📦 Create Release Archives
+        run: |
+          mkdir -p dist
+          # Archive complète
+          tar -czf dist/skull-king-full-${GITHUB_REF#refs/tags/}.tar.gz \
+            --exclude='dist' \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.github' \
+            --exclude='backups' \
+            --exclude='logs' \
+            --exclude='*.db' \
+            --exclude='.next' \
+            .
+          # Archive backend uniquement
+          tar -czf dist/skull-king-backend-${GITHUB_REF#refs/tags/}.tar.gz \
+            --exclude='dist' \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.github' \
+            --exclude='backups' \
+            --exclude='logs' \
+            --exclude='*.db' \
+            sk backend/ docs/ README.md LICENSE
+          
+      - name: 🚀 Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: 🏴‍☠️ Skull King ${{ github.ref }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          
+      - name: 📎 Upload Full Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/skull-king-full-${{ github.ref_name }}.tar.gz
+          asset_name: skull-king-full-${{ github.ref_name }}.tar.gz
+          asset_content_type: application/gzip
+          
+      - name: 📎 Upload Backend Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/skull-king-backend-${{ github.ref_name }}.tar.gz
+          asset_name: skull-king-backend-${{ github.ref_name }}.tar.gz
+          asset_content_type: application/gzip

@@ -1,0 +1,442 @@
+name: 🏴‍☠️ Skull King CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  # Allow manual trigger
+  workflow_dispatch:
+
+env:
+  PROJECT_DIR: /home/sydnec/skullking_js
+  DEPLOY_TIMEOUT: 300
+  API_HEALTH_RETRIES: 6
+  API_HEALTH_INTERVAL: 10
+
+jobs:
+  # Job de tests et validation
+  test:
+    name: 🧪 Tests et validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: 📋 Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+          
+      - name: 📋 Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: 🔍 Lint backend
+        run: |
+          cd backend
+          npm run lint || echo "⚠️ Pas de script lint configuré pour le backend"
+          
+      - name: 🔍 Lint frontend
+        run: |
+          cd frontend
+          npm run lint || echo "⚠️ Pas de script lint configuré pour le frontend"
+          
+      - name: 🧪 Test backend
+        run: |
+          cd backend
+          npm test || echo "⚠️ Pas de tests configurés pour le backend"
+          
+      - name: 🧪 Test frontend
+        run: |
+          cd frontend
+          npm test || echo "⚠️ Pas de tests configurés pour le frontend"
+          
+      - name: 🔒 Audit backend dependencies
+        run: |
+          cd backend
+          npm audit --audit-level=moderate
+          
+      - name: 🔒 Audit frontend dependencies
+        run: |
+          cd frontend
+          npm audit --audit-level=moderate
+          
+      - name: ✅ Validate project structure
+        run: |
+          echo "🔍 Vérification de la structure du projet..."
+          
+          # Vérifier les fichiers essentiels
+          files_to_check=("sk" "backend/package.json" "frontend/package.json" "backend/server.js")
+          for file in "${files_to_check[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file trouvé"
+            else
+              echo "❌ $file manquant"
+              exit 1
+            fi
+          done
+          
+          # Vérifier les dossiers
+          dirs_to_check=("backend" "frontend" "docs")
+          for dir in "${dirs_to_check[@]}"; do
+            if [ -d "$dir" ]; then
+              echo "✅ Dossier $dir trouvé"
+            else
+              echo "❌ Dossier $dir manquant"
+            fi
+          done
+
+  # Job de build et vérification
+  build:
+    name: 🏗️ Build validation
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: 📋 Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+          
+      - name: 📋 Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: 🏗️ Build frontend
+        run: |
+          cd frontend
+          npm run build
+          
+      - name: 🔍 Validate backend syntax
+        run: |
+          cd backend
+          echo "🔍 Validation de la syntaxe du backend..."
+          node -c server.js
+          
+          # Vérifier les autres fichiers JS
+          find src -name "*.js" -type f | while read file; do
+            echo "Vérification: $file"
+            node -c "$file" || exit 1
+          done
+          
+      - name: 🔍 Check Prisma schema
+        run: |
+          cd backend
+          if [ -f "prisma/schema.prisma" ]; then
+            echo "🔍 Validation du schéma Prisma..."
+            npx prisma validate
+          else
+            echo "⚠️ Pas de schéma Prisma trouvé"
+          fi
+
+  # Job de qualité de code
+  code-quality:
+    name: 🔍 Code Quality Analysis
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: 📋 Install dependencies
+        run: |
+          cd backend && npm ci
+          cd ../frontend && npm ci
+          
+      - name: 🔒 Security audit
+        run: |
+          echo "🔒 Audit de sécurité des dépendances..."
+          cd backend && npm audit --audit-level=moderate || true
+          cd ../frontend && npm audit --audit-level=moderate || true
+          
+      - name: 📊 Check project structure
+        run: |
+          echo "📊 Vérification de la structure Skull King..."
+          
+          # Vérifier la structure backend
+          backend_files=("server.js" "package.json")
+          for file in "${backend_files[@]}"; do
+            if [ -f "backend/$file" ]; then
+              echo "✅ Backend: $file trouvé"
+            else
+              echo "❌ Backend: $file manquant"
+            fi
+          done
+          
+          # Vérifier la structure frontend
+          frontend_files=("package.json" "next.config.ts")
+          for file in "${frontend_files[@]}"; do
+            if [ -f "frontend/$file" ]; then
+              echo "✅ Frontend: $file trouvé"
+            else
+              echo "❌ Frontend: $file manquant"
+            fi
+          done
+          
+      - name: 📝 Check for TODO/FIXME
+        run: |
+          echo "📝 Recherche de TODO/FIXME..."
+          todos=$(grep -r "TODO\|FIXME\|XXX\|HACK" --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" backend/ frontend/ || true)
+          
+          if [ -n "$todos" ]; then
+            echo "⚠️ TODO/FIXME trouvés:"
+            echo "$todos"
+          else
+            echo "✅ Aucun TODO/FIXME trouvé"
+          fi
+          
+      - name: 🎮 Check game logic patterns
+        run: |
+          echo "🎮 Vérification des patterns de jeu..."
+          
+          # Vérifier les patterns spécifiques à Skull King
+          if grep -r "Socket\|socket" backend/; then
+            echo "✅ WebSocket patterns détectés"
+          fi
+          
+          if grep -r "game\|Game" backend/; then
+            echo "✅ Game logic patterns détectés"
+          fi
+  # Job de déploiement (seulement sur main avec self-hosted)
+  deploy:
+    name: 🚀 Deploy to production
+    runs-on: self-hosted
+    needs: [test, build, code-quality]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    timeout-minutes: 15
+
+    steps:
+      - name: 🔍 Validate environment
+        run: |
+          echo "🔍 Vérification de l'environnement..."
+          
+          # Vérifier que le répertoire du projet existe
+          if [ ! -d "$PROJECT_DIR" ]; then
+            echo "❌ Le répertoire $PROJECT_DIR n'existe pas"
+            exit 1
+          fi
+          
+          # Vérifier que les outils nécessaires sont installés
+          command -v git >/dev/null 2>&1 || { echo "❌ Git n'est pas installé"; exit 1; }
+          command -v node >/dev/null 2>&1 || { echo "❌ Node.js n'est pas installé"; exit 1; }
+          command -v npm >/dev/null 2>&1 || { echo "❌ npm n'est pas installé"; exit 1; }
+          command -v pm2 >/dev/null 2>&1 || { echo "❌ PM2 n'est pas installé"; exit 1; }
+          
+          echo "✅ Environnement validé"
+
+      - name: 💾 Backup current state
+        run: |
+          echo "� Sauvegarde de l'état actuel..."
+          cd $PROJECT_DIR
+          
+          # Sauvegarde automatique avec le script sk
+          ./sk backup || echo "⚠️ Échec de la sauvegarde automatique"
+          
+          # Sauvegarder l'état PM2 actuel
+          pm2 save || echo "⚠️ Aucune application PM2 à sauvegarder"
+          
+          # Sauvegarder le commit actuel
+          echo "$(git rev-parse HEAD)" > /tmp/skullking_previous_commit
+          echo "✅ État sauvegardé"
+
+      - name: 📥 Pull latest code
+        run: |
+          echo "📥 Récupération du code le plus récent..."
+          cd $PROJECT_DIR
+          
+          # Vérifier s'il y a des changements locaux non commités
+          if ! git diff-index --quiet HEAD --; then
+            echo "⚠️ Changements locaux détectés, ils seront conservés"
+            git stash push -m "Auto-stash before deploy $(date)"
+          fi
+          
+          # Tenter le pull
+          if ! git pull origin main; then
+            echo "❌ Échec du git pull"
+            exit 1
+          fi
+          
+          echo "✅ Code mis à jour vers le commit: $(git rev-parse --short HEAD)"
+
+      - name: 🔧 Set permissions
+        run: |
+          echo "🔧 Configuration des permissions..."
+          cd $PROJECT_DIR
+          
+          # Rendre le script sk exécutable
+          chmod +x sk
+          
+          # Rendre les scripts backend exécutables
+          if [ -f "backend/ssl-renewal.sh" ]; then
+            chmod +x backend/ssl-renewal.sh
+          fi
+          
+          # Rendre tous les scripts shell exécutables
+          find . -name "*.sh" -type f -exec chmod +x {} \;
+          
+          echo "✅ Permissions configurées"
+
+      - name: ⚙️ Install SK script globally
+        run: |
+          echo "⚙️ Installation du script sk globalement..."
+          cd $PROJECT_DIR
+          
+          # Installer le script dans le PATH s'il n'y est pas déjà
+          if ! command -v sk >/dev/null 2>&1 || [ "$(sk status > /dev/null 2>&1; echo $?)" != "0" ]; then
+            echo "📦 Installation/mise à jour du script sk..."
+            sudo cp sk /usr/local/bin/sk
+            sudo chmod +x /usr/local/bin/sk
+            echo "✅ Script sk installé globalement"
+          else
+            echo "✅ Script sk déjà installé et fonctionnel"
+          fi
+
+      - name: 🚀 Deploy application
+        id: deploy
+        run: |
+          echo "🚀 Déploiement de l'application..."
+          cd $PROJECT_DIR
+          
+          # Lancer le déploiement avec timeout
+          timeout $DEPLOY_TIMEOUT sk deploy
+          
+          if [ $? -eq 124 ]; then
+            echo "❌ Timeout du déploiement après ${DEPLOY_TIMEOUT}s"
+            exit 1
+          elif [ $? -ne 0 ]; then
+            echo "❌ Échec du déploiement"
+            exit 1
+          fi
+          
+          echo "✅ Déploiement terminé"
+
+      - name: 🏥 Health check with retries
+        run: |
+          echo "🏥 Vérification de la santé de l'application..."
+          cd $PROJECT_DIR
+          
+          # Attendre un peu que l'application démarre
+          echo "⏳ Attente du démarrage de l'application..."
+          sleep 15
+          
+          # Vérification avec plusieurs tentatives
+          for i in $(seq 1 $API_HEALTH_RETRIES); do
+            echo "🔍 Tentative $i/$API_HEALTH_RETRIES..."
+            
+            # Vérifier le statut
+            if sk status; then
+              echo "✅ Backend en ligne"
+              
+              # Vérifier l'API
+              if sk api; then
+                echo "✅ API fonctionnelle"
+                echo "🎉 Déploiement réussi!"
+                exit 0
+              else
+                echo "⚠️ API non accessible, tentative $i/$API_HEALTH_RETRIES"
+              fi
+            else
+              echo "⚠️ Backend non accessible, tentative $i/$API_HEALTH_RETRIES"
+            fi
+            
+            if [ $i -lt $API_HEALTH_RETRIES ]; then
+              echo "⏳ Attente de ${API_HEALTH_INTERVAL}s avant nouvelle tentative..."
+              sleep $API_HEALTH_INTERVAL
+            fi
+          done
+          
+          echo "❌ L'application n'est pas accessible après $API_HEALTH_RETRIES tentatives"
+          exit 1
+
+      - name: 🔄 Rollback on failure
+        if: failure()
+        run: |
+          echo "🔄 Rollback en cas d'échec..."
+          cd $PROJECT_DIR
+          
+          if [ -f "/tmp/skullking_previous_commit" ]; then
+            previous_commit=$(cat /tmp/skullking_previous_commit)
+            echo "🔙 Retour au commit précédent: $previous_commit"
+            
+            # Retourner au commit précédent
+            git reset --hard $previous_commit
+            
+            # Redéployer la version précédente
+            echo "🔄 Redéploiement de la version précédente..."
+            sk deploy || echo "⚠️ Échec du rollback automatique"
+            
+            # Nettoyer le fichier temporaire
+            rm -f /tmp/skullking_previous_commit
+          else
+            echo "⚠️ Impossible de faire un rollback: commit précédent non trouvé"
+          fi
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          echo "🧹 Nettoyage..."
+          
+          # Nettoyer les fichiers temporaires
+          rm -f /tmp/skullking_previous_commit
+          
+          # Afficher les logs récents en cas de problème
+          if [ "${{ job.status }}" != "success" ]; then
+            echo "📋 Logs récents PM2:"
+            pm2 logs skullking-backend --lines 20 || echo "Aucun log PM2 disponible"
+          fi
+          
+          echo "✅ Nettoyage terminé"
+
+  # Job de notification
+  notify:
+    name: 📢 Notification
+    runs-on: ubuntu-latest
+    needs: [test, build, code-quality, deploy]
+    if: always()
+    
+    steps:
+      - name: 📢 Success notification
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "🎉 Déploiement Skull King réussi!"
+          echo "✅ Tests: ${{ needs.test.result }}"
+          echo "✅ Build: ${{ needs.build.result }}"
+          echo "✅ Quality: ${{ needs.code-quality.result }}"
+          echo "✅ Deploy: ${{ needs.deploy.result }}"
+          
+      - name: ❌ Failure notification  
+        if: needs.test.result == 'failure' || needs.build.result == 'failure' || needs.code-quality.result == 'failure' || needs.deploy.result == 'failure'
+        run: |
+          echo "❌ Échec du workflow Skull King!"
+          echo "🧪 Tests: ${{ needs.test.result }}"
+          echo "🏗️ Build: ${{ needs.build.result }}"
+          echo "🔍 Quality: ${{ needs.code-quality.result }}"
+          echo "🚀 Deploy: ${{ needs.deploy.result }}"

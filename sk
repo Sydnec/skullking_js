@@ -1,0 +1,946 @@
+#!/bin/bash
+
+# 🏴‍☠️ Skull King - Script de gestion unifié
+# Usage: sk [command]
+
+# Auto-détection du répertoire du projet
+# Si le script est dans /usr/local/bin, on utilise le répertoire courant
+# Sinon, on utilise le répertoire du script
+
+if [[ "$(realpath "$0")" == "/usr/local/bin/sk" ]]; then
+    # Script installé globalement, utiliser le répertoire courant
+    PROJECT_DIR="$(pwd)"
+    # Vérifier si on est dans un projet Skull King valide
+    if [[ ! -d "backend" ]] || [[ ! -d "frontend" ]]; then
+        # Essayer de trouver le projet dans les répertoires parents
+        current_dir="$(pwd)"
+        found=false
+        while [[ "$current_dir" != "/" ]]; do
+            if [[ -d "$current_dir/backend" ]] && [[ -d "$current_dir/frontend" ]] && [[ -f "$current_dir/sk" ]]; then
+                PROJECT_DIR="$current_dir"
+                found=true
+                break
+            fi
+            current_dir="$(dirname "$current_dir")"
+        done
+        
+        if [[ "$found" != true ]]; then
+            PROJECT_DIR="/home/sydnec/skullking_js"  # Fallback
+        fi
+    fi
+else
+    # Script local, utiliser le répertoire du script
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
+BACKEND_DIR="$PROJECT_DIR/backend"
+FRONTEND_DIR="$PROJECT_DIR/frontend"
+LOG_DIR="$BACKEND_DIR/logs"
+BACKUP_DIR="$PROJECT_DIR/backups"
+
+# Validation du répertoire de projet
+validate_project_directory() {
+    if [[ ! -d "$BACKEND_DIR" ]] || [[ ! -d "$FRONTEND_DIR" ]]; then
+        print_error "Ce répertoire ne semble pas être un projet Skull King valide."
+        print_error "Répertoires attendus :"
+        print_error "  - Backend: $BACKEND_DIR"
+        print_error "  - Frontend: $FRONTEND_DIR"
+        print_error ""
+        print_error "Répertoire actuel détecté : $PROJECT_DIR"
+        print_error "Assurez-vous d'être dans le répertoire racine du projet ou que les répertoires existent."
+        exit 1
+    fi
+}
+
+# Création du répertoire de backup si nécessaire
+ensure_backup_dir() {
+    if [[ ! -d "$BACKUP_DIR" ]]; then
+        mkdir -p "$BACKUP_DIR"
+    fi
+}
+
+# Fonction pour trouver le chemin de la base de données
+find_database_path() {
+    local db_paths=(
+        "$BACKEND_DIR/prisma/prisma/dev.db"
+        "$BACKEND_DIR/prisma/dev.db"
+        "$BACKEND_DIR/dev.db"
+    )
+    
+    for path in "${db_paths[@]}"; do
+        if [[ -f "$path" ]]; then
+            echo "$path"
+            return 0
+        fi
+    done
+    
+    # Retourner le chemin standard si aucun fichier trouvé
+    echo "$BACKEND_DIR/prisma/prisma/dev.db"
+    return 1
+}
+
+# Fonction de sauvegarde de la base de données
+backup_database() {
+    ensure_backup_dir
+    local backup_file="$BACKUP_DIR/db_backup_$(date +%Y%m%d_%H%M%S).db"
+    local db_path
+    
+    db_path=$(find_database_path)
+    
+    if [[ -f "$db_path" ]]; then
+        cp "$db_path" "$backup_file"
+        print_success "Base de données sauvegardée : $backup_file"
+        print_success "Source: $db_path"
+        return 0
+    else
+        print_warning "Aucune base de données trouvée"
+        print_warning "Emplacements vérifiés:"
+        print_warning "  - $BACKEND_DIR/prisma/prisma/dev.db"
+        print_warning "  - $BACKEND_DIR/prisma/dev.db"
+        print_warning "  - $BACKEND_DIR/dev.db"
+        return 1
+    fi
+}
+
+# Fonction de restauration de la base de données
+restore_database() {
+    local backup_file="$1"
+    
+    if [[ -z "$backup_file" ]]; then
+        print_error "Fichier de sauvegarde requis"
+        echo "Usage: sk restore <fichier_backup>"
+        echo "Sauvegardes disponibles:"
+        ls -la "$BACKUP_DIR"/*.db 2>/dev/null || echo "Aucune sauvegarde trouvée"
+        return 1
+    fi
+    
+    if [[ ! -f "$backup_file" ]]; then
+        print_error "Fichier de sauvegarde non trouvé: $backup_file"
+        return 1
+    fi
+    
+    local db_path
+    db_path=$(find_database_path)
+    
+    # Créer le répertoire si nécessaire
+    mkdir -p "$(dirname "$db_path")"
+    
+    print_step "Arrêt du backend pour la restauration..."
+    pm2 stop skullking-backend 2>/dev/null || echo "Backend déjà arrêté"
+    
+    print_step "Restauration de la base de données..."
+    cp "$backup_file" "$db_path"
+    print_success "Base de données restaurée vers: $db_path"
+    
+    print_step "Redémarrage du backend..."
+    pm2 start "$BACKEND_DIR/ecosystem.config.cjs" --env production
+    
+    if check_app_status; then
+        print_success "Base de données restaurée avec succès"
+    else
+        print_error "Erreur lors de la restauration"
+    fi
+}
+
+# Couleurs
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+print_section() {
+    echo -e "${CYAN}📊 $1${NC}"
+    echo "----------------------------"
+}
+
+print_step() {
+    echo -e "${GREEN}[ÉTAPE]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+# Fonction pour vérifier si l'application est en ligne
+check_app_status() {
+    if pm2 list 2>/dev/null | grep -q "skullking-backend.*online"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Fonction de monitoring complète
+monitor_function() {
+    clear
+    echo -e "${PURPLE}🏴‍☠️ SKULL KING - MONITORING${NC}"
+    echo "================================="
+    echo ""
+    
+    # 1. Statut PM2
+    print_section "Statut PM2"
+    if pm2 list 2>/dev/null | grep -q "skullking-backend"; then
+        pm2 list
+        echo ""
+        if check_app_status; then
+            print_success "Backend Skull King en ligne"
+        else
+            print_error "Backend Skull King hors ligne"
+        fi
+    else
+        print_error "Aucun processus PM2 trouvé"
+    fi
+    echo ""
+
+    # 2. Test de l'API
+    print_section "Test de l'API"
+    if curl -s http://localhost:3001/health >/dev/null 2>&1; then
+        print_success "API accessible"
+        echo "Réponse: $(curl -s http://localhost:3001/health)"
+    else
+        print_error "API non accessible"
+    fi
+    echo ""
+
+    # 3. Ressources système
+    print_section "Ressources système"
+    echo "💾 Mémoire: $(free -h | awk '/^Mem:/ {printf "Utilisée: %s/%s (%.2f%%)", $3, $2, ($3/$2)*100}')"
+    echo "🔥 CPU: $(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//')% utilisé"
+    echo "💿 Disque: $(df -h / | awk 'NR==2 {printf "Utilisé: %s/%s (%s)", $3, $2, $5}')"
+    echo ""
+
+    # 4. Connectivité réseau
+    print_section "Connectivité réseau"
+    echo "🌐 IP locale: $(hostname -I | awk '{print $1}' 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || echo "Non disponible")"
+    if ss -tuln 2>/dev/null | grep -q ":3001 " || netstat -an 2>/dev/null | grep -q ":3001.*LISTEN"; then
+        print_success "Port 3001 (Backend) ouvert et en écoute"
+    else
+        print_error "Port 3001 (Backend) non accessible"
+    fi
+    echo ""
+
+    # 5. Logs récents
+    print_section "Logs récents (dernières 5 lignes)"
+    pm2 logs skullking-backend --lines 5 --nostream 2>/dev/null || echo "Aucun log disponible"
+    echo ""
+
+    # 6. Informations de déploiement
+    print_section "Informations de déploiement"
+    if [ -f "$FRONTEND_DIR/.next/BUILD_ID" ]; then
+        echo "📅 Dernière mise à jour du build frontend: $(stat -c %y "$FRONTEND_DIR/.next/BUILD_ID" 2>/dev/null || stat -f %Sm "$FRONTEND_DIR/.next/BUILD_ID" 2>/dev/null || echo "Non disponible")"
+    fi
+    echo "📁 Répertoire projet: $PROJECT_DIR"
+    echo "📁 Backend: $BACKEND_DIR"
+    echo "📁 Frontend: $FRONTEND_DIR"
+    echo "👤 Utilisateur: $(whoami)"
+    echo "🖥️  Hostname: $(hostname)"
+    echo ""
+    echo "🔄 Pour actualiser: sk monitor"
+    echo "📊 Pour PM2 monitoring: pm2 monit"
+    echo "📋 Pour redémarrer: sk restart"
+}
+
+# Fonction de mise à jour
+update_function() {
+    cd "$PROJECT_DIR" || {
+        print_error "Impossible d'accéder au répertoire $PROJECT_DIR"
+        exit 1
+    }
+
+    print_step "🔄 Mise à jour Skull King..."
+    
+    # Sauvegarde des logs
+    print_step "Sauvegarde des logs actuels..."
+    if [ -f "$LOG_DIR/combined.log" ]; then
+        cp "$LOG_DIR/combined.log" "$LOG_DIR/combined.log.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+
+    # Vérifier et arrêter PM2 si nécessaire
+    print_step "📋 Vérification du statut PM2..."
+    if pm2 describe skullking-backend &> /dev/null; then
+        print_step "✅ Processus PM2 'skullking-backend' trouvé"
+        print_step "Arrêt temporaire de l'application..."
+        pm2 stop skullking-backend
+    else
+        print_warning "⚠️ Processus PM2 'skullking-backend' non trouvé"
+    fi
+
+    # Sauvegarde de la base de données
+    print_step "Sauvegarde de la base de données..."
+    local db_path
+    db_path=$(find_database_path)
+    if [[ -f "$db_path" ]]; then
+        cp "$db_path" "${db_path}.backup.$(date +%Y%m%d_%H%M%S)"
+        print_success "Base de données sauvegardée"
+    fi
+
+    # Git pull
+    print_step "Récupération des dernières modifications..."
+    git pull origin main || print_warning "Impossible de faire git pull"
+
+    # Installation des dépendances backend
+    print_step "Installation des dépendances backend..."
+    cd "$BACKEND_DIR"
+    npm i
+
+    # Retour au backend pour Prisma
+    cd "$BACKEND_DIR"
+
+    # Génération Prisma
+    print_step "Génération du client Prisma..."
+    npx prisma generate
+
+    # Migration de la base de données
+    print_step "Migration de la base de données..."
+    NODE_ENV=production npx prisma db push
+
+    # Redémarrage
+    print_step "Redémarrage de l'application..."
+    pm2 restart skullking-backend || pm2 start ecosystem.config.cjs --env production
+    pm2 save
+
+    # Vérification finale
+    sleep 5
+    if check_app_status; then
+        print_success "🎉 Mise à jour terminée avec succès!"
+        print_success "Le backend est en ligne sur http://localhost:3001"
+        print_success "Le frontend peut être déployé séparément"
+    else
+        print_error "❌ Problème lors de la mise à jour"
+        echo "Vérifiez les logs avec: sk logs"
+    fi
+}
+
+# Fonction d'installation du script dans le PATH
+install_script() {
+    local script_path="/usr/local/bin/sk"
+    
+    if [[ -f "$script_path" ]]; then
+        echo -n "Le script est déjà installé. Voulez-vous le mettre à jour? (O/n): "
+        read -n 1 confirmation
+        echo ""
+        if [[ ! "$confirmation" =~ ^[Oo]$ ]] && [[ -n "$confirmation" ]]; then
+            print_warning "Installation annulée"
+            return 1
+        fi
+    fi
+    
+    print_step "Installation du script sk dans /usr/local/bin..."
+    
+    # Copier le script
+    if sudo cp "$PROJECT_DIR/sk" "$script_path"; then
+        sudo chmod +x "$script_path"
+        print_success "Script installé avec succès!"
+        print_success "Vous pouvez maintenant utiliser 'sk' depuis n'importe où"
+        echo ""
+        echo "💡 Conseils:"
+        echo "  - Utilisez 'sk' depuis le répertoire du projet ou ses sous-répertoires"
+        echo "  - Le script détectera automatiquement le bon répertoire de projet"
+        echo "  - Pour désinstaller: sudo rm /usr/local/bin/sk"
+    else
+        print_error "Erreur lors de l'installation (permissions sudo requises)"
+        return 1
+    fi
+}
+
+# Fonction pour incrémenter la version et taguer automatiquement
+release_auto() {
+    local type="patch"
+    local version_regex='^v([0-9]+)\.([0-9]+)\.([0-9]+)$'
+    if [[ "$2" == "major" || "$2" == "minor" || "$2" == "patch" ]]; then
+        type="$2"
+    fi
+
+    print_section "Release automatique ($type)"
+    print_step "Passage sur main et pull..."
+    git checkout main || { print_error "Impossible de passer sur main"; return 1; }
+    git pull origin main || { print_error "Impossible de pull main"; return 1; }
+
+    # Récupérer le dernier tag
+    last_tag=$(git tag --sort=-v:refname | grep -E "$version_regex" | head -n1)
+    if [[ -z "$last_tag" ]]; then
+        last_tag="v0.0.0"
+    fi
+    if [[ $last_tag =~ $version_regex ]]; then
+        major=${BASH_REMATCH[1]}
+        minor=${BASH_REMATCH[2]}
+        patch=${BASH_REMATCH[3]}
+    else
+        major=0; minor=0; patch=0
+    fi
+
+    case "$type" in
+        major)
+            major=$((major+1)); minor=0; patch=0;;
+        minor)
+            minor=$((minor+1)); patch=0;;
+        patch|*)
+            patch=$((patch+1));;
+    esac
+    new_tag="v${major}.${minor}.${patch}"
+
+    # Mettre à jour la version dans package.json (racine)
+    if [ -f "$PROJECT_DIR/package.json" ]; then
+        jq ".version = \"${major}.${minor}.${patch}\"" "$PROJECT_DIR/package.json" > "$PROJECT_DIR/package.json.tmp" && mv "$PROJECT_DIR/package.json.tmp" "$PROJECT_DIR/package.json"
+        print_success "Version mise à jour dans package.json (racine)"
+    fi
+    # Mettre à jour la version dans backend/package.json
+    if [ -f "$PROJECT_DIR/backend/package.json" ]; then
+        jq ".version = \"${major}.${minor}.${patch}\"" "$PROJECT_DIR/backend/package.json" > "$PROJECT_DIR/backend/package.json.tmp" && mv "$PROJECT_DIR/backend/package.json.tmp" "$PROJECT_DIR/backend/package.json"
+        print_success "Version mise à jour dans backend/package.json"
+    fi
+    # Mettre à jour la version dans frontend/package.json
+    if [ -f "$PROJECT_DIR/frontend/package.json" ]; then
+        jq ".version = \"${major}.${minor}.${patch}\"" "$PROJECT_DIR/frontend/package.json" > "$PROJECT_DIR/frontend/package.json.tmp" && mv "$PROJECT_DIR/frontend/package.json.tmp" "$PROJECT_DIR/frontend/package.json"
+        print_success "Version mise à jour dans frontend/package.json"
+    fi
+    git add package.json backend/package.json frontend/package.json 2>/dev/null
+    git commit -m "v${major}.${minor}.${patch}" || echo "Aucun changement à committer"
+    git push origin main || { print_error "Impossible de push sur main"; return 1; }
+
+    print_step "Nouveau tag: $new_tag"
+    git tag "$new_tag" || { print_error "Impossible de créer le tag"; return 1; }
+    git push origin "$new_tag" || { print_error "Impossible de push le tag"; return 1; }
+    print_success "Release $new_tag poussée sur main !"
+}
+
+case "$1" in
+    dev)
+        validate_project_directory
+        echo "🚀 Lancement du mode développement..."
+        echo "Backend sur http://localhost:3001"
+        echo "Frontend sur http://localhost:3000"
+        echo ""
+        print_step "Démarrage du backend..."
+        cd "$BACKEND_DIR"
+        npm run dev &
+        BACKEND_PID=$!
+        
+        print_step "Démarrage du frontend..."
+        cd "$FRONTEND_DIR"
+        npm run dev &
+        FRONTEND_PID=$!
+        
+        echo ""
+        print_success "Développement démarré!"
+        echo "Appuyez sur Ctrl+C pour arrêter les deux serveurs"
+        
+        # Attendre l'interruption et tuer les processus
+        trap 'echo ""; print_step "Arrêt des serveurs..."; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; print_success "Serveurs arrêtés"; exit 0' INT
+        wait
+        ;;
+    build)
+        validate_project_directory
+        print_section "Construction du Frontend"
+        cd "$FRONTEND_DIR"
+        print_step "Installation des dépendances..."
+        npm i
+        echo ""
+        print_step "Build en cours..."
+        npm run build
+        echo ""
+        if [ $? -eq 0 ]; then
+            print_success "🎉 Frontend buildé avec succès!"
+            echo ""
+            echo "📊 Informations de build:"
+            echo "────────────────────────"
+            echo "📁 Répertoire: $FRONTEND_DIR"
+            echo "📦 Build situé dans: .next/"
+            echo "🚀 Prêt pour le déploiement"
+            echo ""
+            echo "💡 Prochaines étapes:"
+            echo "  • Déployer sur Vercel ou autre plateforme"
+            echo "  • Ou utiliser: sk deploy-full (pour déploiement local)"
+        else
+            print_error "❌ Erreur lors du build"
+            echo ""
+            echo "🔍 Vérifications suggérées:"
+            echo "────────────────────────"
+            echo "  • Vérifiez les erreurs ci-dessus"
+            echo "  • Assurez-vous que toutes les dépendances sont installées"
+            echo "  • Vérifiez la configuration TypeScript/Next.js"
+        fi
+        ;;
+    start)
+        validate_project_directory
+        print_section "Démarrage du Backend Skull King"
+        cd "$BACKEND_DIR"
+        pm2 start ecosystem.config.cjs --env production 2>/dev/null || {
+            print_warning "Processus déjà en cours, tentative de redémarrage..."
+            pm2 restart skullking-backend
+        }
+        pm2 save
+        sleep 2
+        echo ""
+        if check_app_status; then
+            print_success "🎉 Backend Skull King démarré avec succès!"
+            echo ""
+            echo "📊 Informations de connexion:"
+            echo "───────────────────────────"
+            echo "🌐 Backend: http://localhost:3001"
+            echo "🏥 Health: http://localhost:3001/health"
+            echo ""
+            echo "💡 Commandes utiles:"
+            echo "  • sk status    - Vérifier l'état"
+            echo "  • sk logs      - Voir les logs"
+            echo "  • sk monitor   - Monitoring complet"
+        else
+            print_error "❌ Échec du démarrage"
+            echo ""
+            echo "🔍 Vérifications suggérées:"
+            echo "  • Vérifiez les logs: sk logs"
+            echo "  • Vérifiez les permissions"
+            echo "  • Redémarrez: sk restart"
+        fi
+        ;;
+    stop)
+        print_section "Arrêt du Backend Skull King"
+        pm2 stop skullking-backend 2>/dev/null || print_warning "Application déjà arrêtée"
+        echo ""
+        print_success "🛑 Backend Skull King arrêté avec succès"
+        echo ""
+        echo "💡 Pour redémarrer:"
+        echo "  • sk start     - Démarrer le backend"
+        echo "  • sk restart   - Redémarrer directement"
+        ;;
+    restart)
+        print_section "Redémarrage du Backend Skull King"
+        cd "$BACKEND_DIR"
+        pm2 restart skullking-backend 2>/dev/null || {
+            print_warning "Processus non trouvé, démarrage..."
+            pm2 start ecosystem.config.cjs --env production
+        }
+        pm2 save
+        sleep 2
+        echo ""
+        if check_app_status; then
+            print_success "🔄 Backend Skull King redémarré avec succès!"
+            echo ""
+            echo "📊 Informations de connexion:"
+            echo "───────────────────────────"
+            echo "🌐 Backend: http://localhost:3001"
+            echo "🏥 Health: http://localhost:3001/health"
+            echo ""
+            echo "💡 Commandes utiles:"
+            echo "  • sk api       - Tester l'API"
+            echo "  • sk logs      - Voir les logs"
+            echo "  • sk monitor   - Monitoring complet"
+        else
+            print_error "❌ Échec du redémarrage"
+            echo ""
+            echo "🔍 Vérifications suggérées:"
+            echo "  • Vérifiez les logs: sk logs"
+            echo "  • Essayez un arrêt/démarrage: sk stop && sk start"
+        fi
+        ;;
+    status)
+        print_section "Statut du Backend Skull King"
+        if check_app_status; then
+            print_success "🟢 Backend Skull King en ligne"
+            echo ""
+            echo "📊 Informations rapides:"
+            echo "───────────────────────"
+            echo "🌐 Endpoint: http://localhost:3001"
+            echo "⚡ Processus PM2: Actif"
+            echo ""
+            echo "💡 Commandes utiles:"
+            echo "  • sk api       - Test complet de l'API"
+            echo "  • sk logs      - Voir les logs en temps réel"
+            echo "  • sk monitor   - Monitoring détaillé"
+        else
+            print_error "🔴 Backend Skull King hors ligne"
+            echo ""
+            echo "🔍 Actions suggérées:"
+            echo "───────────────────"
+            echo "  • sk start     - Démarrer le backend"
+            echo "  • sk logs      - Vérifier les erreurs"
+            echo "  • sk deploy    - Redéployer si nécessaire"
+        fi
+        ;;
+    logs)
+        print_section "Logs du Backend Skull King"
+        echo "📋 Affichage en temps réel (Ctrl+C pour arrêter)"
+        echo "═════════════════════════════════════════════"
+        echo ""
+        pm2 logs skullking-backend 2>/dev/null || {
+            print_error "Impossible d'accéder aux logs"
+            echo ""
+            echo "🔍 Vérifications:"
+            echo "  • Le backend est-il démarré? sk status"
+            echo "  • Essayez de redémarrer: sk restart"
+        }
+        ;;
+    monitor)
+        monitor_function
+        ;;
+    update)
+        update_function
+        ;;
+    deploy)
+        echo "🚀 Déploiement backend..."
+        cd "$PROJECT_DIR"
+        
+        # Sauvegarde automatique avant déploiement
+        print_step "Sauvegarde automatique avant déploiement..."
+        backup_database || echo "Continuer sans sauvegarde..."
+        
+        # Vérification et création du fichier .env backend
+        print_step "Vérification de la configuration d'environnement backend..."
+        cd "$BACKEND_DIR"
+        if [ ! -f ".env" ]; then
+            if [ -f ".env.example" ]; then
+                print_step "Copie de .env.example vers .env..."
+                cp .env.example .env
+                print_success "Fichier .env créé à partir de .env.example"
+            else
+                print_warning "Ni .env ni .env.example trouvés dans le backend"
+            fi
+        else
+            print_success "Fichier .env déjà présent dans le backend"
+        fi
+        
+        # Arrêt de l'application
+        print_step "Arrêt de l'application si elle est en cours d'exécution..."
+        pm2 stop skullking-backend 2>/dev/null || echo "Backend pas encore démarré"
+
+        # Installation des dépendances backend
+        print_step "Installation des dépendances backend..."
+        cd "$BACKEND_DIR"
+        npm i
+
+        # Génération du client Prisma
+        print_step "Génération du client Prisma..."
+        npx prisma generate
+
+        # Initialisation de la base de données
+        print_step "Initialisation de la base de données de production..."
+        NODE_ENV=production npx prisma db push
+
+        # Démarrage du backend avec PM2
+        print_step "Démarrage du backend avec PM2..."
+        cd "$BACKEND_DIR"
+        pm2 start ecosystem.config.cjs --env production
+
+        # Sauvegarde de la configuration PM2
+        print_step "Sauvegarde de la configuration PM2..."
+        pm2 save
+
+        # Vérification finale
+        sleep 5
+        if check_app_status; then
+            print_success "🎉 Déploiement backend terminé avec succès!"
+            print_success "Backend accessible sur http://localhost:3001"
+            print_success "Le frontend peut être déployé séparément"
+        else
+            print_error "❌ Problème lors du déploiement"
+        fi
+        ;;
+    deploy-full)
+        echo "🚀 Déploiement complet (backend + frontend)..."
+        cd "$PROJECT_DIR"
+        
+        # Vérification et création du fichier .env backend
+        print_step "Vérification de la configuration d'environnement backend..."
+        cd "$BACKEND_DIR"
+        if [ ! -f ".env" ]; then
+            if [ -f ".env.example" ]; then
+                print_step "Copie de .env.example vers .env..."
+                cp .env.example .env
+                print_success "Fichier .env créé à partir de .env.example"
+            else
+                print_warning "Ni .env ni .env.example trouvés dans le backend"
+            fi
+        else
+            print_success "Fichier .env déjà présent dans le backend"
+        fi
+        
+        # Vérification et création du fichier .env frontend
+        print_step "Vérification de la configuration d'environnement frontend..."
+        cd "$FRONTEND_DIR"
+        if [ ! -f ".env.local" ]; then
+            if [ -f ".env.example" ]; then
+                print_step "Copie de .env.example vers .env.local..."
+                cp .env.example .env.local
+                print_success "Fichier .env.local créé à partir de .env.example"
+            else
+                print_warning "Ni .env.local ni .env.example trouvés dans le frontend"
+            fi
+        else
+            print_success "Fichier .env.local déjà présent dans le frontend"
+        fi
+        
+        # Arrêt de l'application
+        print_step "Arrêt de l'application si elle est en cours d'exécution..."
+        pm2 stop skullking-backend 2>/dev/null || echo "Backend pas encore démarré"
+
+        # Installation des dépendances backend
+        print_step "Installation des dépendances backend..."
+        cd "$BACKEND_DIR"
+        npm i
+
+        # Génération du client Prisma
+        print_step "Génération du client Prisma..."
+        npx prisma generate
+
+        # Initialisation de la base de données
+        print_step "Initialisation de la base de données de production..."
+        NODE_ENV=production npx prisma db push
+
+        # Installation des dépendances frontend
+        print_step "Installation des dépendances frontend..."
+        cd "$FRONTEND_DIR"
+        npm i
+
+        # Build du frontend
+        print_step "Construction du frontend..."
+        npm run build
+
+        # Démarrage du backend avec PM2
+        print_step "Démarrage du backend avec PM2..."
+        cd "$BACKEND_DIR"
+        pm2 start ecosystem.config.cjs --env production
+
+        # Sauvegarde de la configuration PM2
+        print_step "Sauvegarde de la configuration PM2..."
+        pm2 save
+
+        # Vérification finale
+        sleep 5
+        if check_app_status; then
+            print_success "🎉 Déploiement complet terminé avec succès!"
+            print_success "Backend accessible sur http://localhost:3001"
+            print_success "Frontend buildé et prêt à être déployé"
+        else
+            print_error "❌ Problème lors du déploiement"
+        fi
+        ;;
+    api)
+        print_section "Vérification de la santé de l'API"
+        if curl -s http://localhost:3001/health >/dev/null 2>&1; then
+            response=$(curl -s http://localhost:3001/health)
+            print_success "API accessible et fonctionnelle"
+            echo ""
+            
+            # Parser et afficher les informations de manière jolie
+            if command -v jq >/dev/null 2>&1; then
+                # Si jq est disponible, parser le JSON proprement
+                echo "📊 Détails de santé:"
+                echo "───────────────────"
+                echo "🟢 Statut: $(echo "$response" | jq -r '.status // "N/A"')"
+                echo "⏰ Timestamp: $(echo "$response" | jq -r '.timestamp // "N/A"')"
+                echo "⏱️  Uptime: $(echo "$response" | jq -r '.uptime // "N/A"')"
+                echo "💾 Mémoire utilisée: $(echo "$response" | jq -r '.memory.used // "N/A"')"
+                echo "💾 Mémoire totale: $(echo "$response" | jq -r '.memory.total // "N/A"')"
+                echo "🌍 Environnement: $(echo "$response" | jq -r '.environment // "N/A"')"
+                echo "🔒 SSL: $(echo "$response" | jq -r '.ssl // "N/A"')"
+            else
+                # Si jq n'est pas disponible, affichage simple mais joli
+                echo "📊 Réponse de l'API:"
+                echo "───────────────────"
+                echo "$response" | sed 's/,/\n/g' | sed 's/[{}"]//g' | sed 's/:/: /g' | while read line; do
+                    if [[ -n "$line" ]]; then
+                        echo "  $line"
+                    fi
+                done
+            fi
+            echo ""
+            print_success "🎉 L'API Skull King est en parfaite santé!"
+            echo "🌐 Endpoint: http://localhost:3001/health"
+        else
+            print_error "API non accessible"
+            echo ""
+            echo "🔍 Vérifications à effectuer:"
+            echo "  1. Le backend est-il démarré? (sk status)"
+            echo "  2. Le port 3001 est-il libre?"
+            echo "  3. Y a-t-il des erreurs dans les logs? (sk logs)"
+        fi
+        ;;
+    install)
+        install_script
+        ;;
+    backup)
+        validate_project_directory
+        print_section "Sauvegarde de la Base de Données"
+        if backup_database; then
+            echo ""
+            echo "💡 Commandes utiles:"
+            echo "───────────────────"
+            echo "  • sk restore <fichier>  - Restaurer une sauvegarde"
+            echo "  • ls -la $BACKUP_DIR    - Voir toutes les sauvegardes"
+        else
+            echo ""
+            echo "🔍 Vérifications:"
+            echo "───────────────"
+            echo "  • La base de données existe-t-elle?"
+            echo "  • Le backend a-t-il été initialisé? sk deploy"
+        fi
+        ;;
+    restore)
+        validate_project_directory
+        if [[ -n "$2" ]]; then
+            print_section "Restauration de la Base de Données"
+            restore_database "$2"
+        else
+            print_section "Sauvegardes Disponibles"
+            if ls "$BACKUP_DIR"/*.db 1> /dev/null 2>&1; then
+                echo "📋 Fichiers de sauvegarde trouvés:"
+                echo "═══════════════════════════════════"
+                ls -la "$BACKUP_DIR"/*.db
+                echo ""
+                echo "📖 Usage:"
+                echo "───────"
+                echo "  sk restore <fichier_backup>"
+                echo ""
+                echo "📝 Exemple:"
+                echo "  sk restore $BACKUP_DIR/db_backup_20250821_194101.db"
+            else
+                print_warning "Aucune sauvegarde trouvée dans $BACKUP_DIR"
+                echo ""
+                echo "💡 Pour créer une sauvegarde:"
+                echo "  sk backup"
+            fi
+        fi
+        ;;
+    reset)
+        # Vérifier si l'option --y ou -y est présente
+        auto_confirm=false
+        if [[ "$2" == "--y" ]] || [[ "$2" == "-y" ]]; then
+            auto_confirm=true
+        fi
+        
+        echo "🔄 Réinitialisation complète du projet..."
+        echo ""
+        echo -e "${YELLOW}⚠️  ATTENTION: Cette action va supprimer toutes les données!${NC}"
+        echo -e "${YELLOW}⚠️  Les utilisateurs, salles de jeu et parties seront perdues!${NC}"
+        echo ""
+        
+        # Sauvegarde de sécurité avant reset
+        if [[ "$auto_confirm" != true ]]; then
+            echo "💾 Création d'une sauvegarde de sécurité avant reset..."
+            backup_database || echo "Continuer sans sauvegarde..."
+            echo ""
+        fi
+        
+        if [ "$auto_confirm" = true ]; then
+            echo "Mode automatique activé (--y), confirmation ignorée"
+            confirmation="o"
+        else
+            echo -n "Êtes-vous sûr de vouloir continuer? (O/n): "
+            read -n 1 confirmation
+            echo ""
+        fi
+        
+        if [[ "$confirmation" =~ ^[Oo]$ ]] || [ -z "$confirmation" ]; then
+            cd "$PROJECT_DIR" || {
+                print_error "Impossible d'accéder au répertoire $PROJECT_DIR"
+                exit 1
+            }
+
+            # Suppression des logs
+            print_step "Suppression des logs..."
+            if [ -d "$LOG_DIR" ]; then
+                rm -rf "$LOG_DIR"
+                mkdir -p "$LOG_DIR"
+                touch "$LOG_DIR/combined.log"
+                touch "$LOG_DIR/error.log"
+                touch "$LOG_DIR/out.log"
+                print_success "Logs supprimés et répertoire recréé"
+            else
+                print_warning "Répertoire de logs non trouvé, création d'un nouveau"
+                mkdir -p "$LOG_DIR"
+            fi
+
+            # Suppression de la base de données
+            print_step "Suppression de la base de données..."
+            db_path=$(find_database_path)
+            if [[ -f "$db_path" ]]; then
+                rm -f "$db_path"
+                print_success "Base de données supprimée"
+            fi
+
+            # Arrêt et suppression du processus PM2
+            print_step "Arrêt du processus PM2..."
+            pm2 stop skullking-backend 2>/dev/null || echo "Processus déjà arrêté"
+            pm2 delete skullking-backend 2>/dev/null || echo "Processus non trouvé"
+
+            # Réinitialisation de la base de données
+            print_step "Réinitialisation de la base de données..."
+            cd "$BACKEND_DIR"
+            npx prisma db push --force-reset
+
+            # Redémarrage
+            print_step "Redémarrage de l'application..."
+            pm2 start ecosystem.config.cjs --env production
+            pm2 save
+            
+            sleep 2
+            if check_app_status; then
+                print_success "Projet réinitialisé et prêt à utiliser"
+                print_success "Backend accessible sur http://localhost:3001"
+            else
+                print_error "Erreur lors de la réinitialisation"
+            fi
+        else
+            print_warning "Réinitialisation annulée"
+        fi
+        ;;
+    release)
+        # Usage: sk release [patch|minor|major]
+        release_auto "$@"
+        ;;
+    *)
+        echo -e "${PURPLE}🏴‍☠️ SKULL KING - Script de gestion unifié${NC}"
+        echo "============================================="
+        echo ""
+        echo "Usage: sk [commande]"
+        echo ""
+        echo "Commandes disponibles:"
+        echo ""
+        echo "🚀 Gestion de l'application:"
+        echo "  start         - Démarre le backend"
+        echo "  stop          - Arrête le backend"
+        echo "  restart       - Redémarre le backend"
+        echo "  status        - Affiche le statut du backend"
+        echo ""
+        echo "📊 Monitoring et logs:"
+        echo "  logs          - Affiche les logs PM2 du backend en temps réel"
+        echo "  monitor       - Monitoring complet avec ressources système"
+        echo "  api           - Vérifie la santé de l'API backend"
+        echo ""
+        echo "🔧 Développement:"
+        echo "  dev           - Lance le développement (backend + frontend)"
+        echo "  build         - Build le frontend uniquement"
+        echo ""
+        echo "🚀 Déploiement:"
+        echo "  deploy        - Déploiement backend uniquement (recommandé)"
+        echo "  deploy-full   - Déploiement backend + build frontend"
+        echo "  update        - Mise à jour du backend"
+        echo ""
+        echo "💾 Sauvegarde et restauration:"
+        echo "  backup        - Sauvegarde la base de données"
+        echo "  restore       - Restaure une sauvegarde (sk restore <fichier>)"
+        echo ""
+        echo "⚙️ Configuration:"
+        echo "  install       - Installe le script dans le PATH global"
+        echo "  reset         - Réinitialise complètement le projet (⚠️ SUPPRIME TOUTES LES DONNÉES)"
+        echo "                  Options: --y ou -y pour confirmer automatiquement"
+        echo "  release       - Crée une release automatique (patch|minor|major)"
+        echo ""
+        echo "Architecture:"
+        echo "  📁 Backend : Port 3001 (API + Socket.IO)"
+        echo "  📁 Frontend: Port 3000 (Next.js - dev) ou déployé séparément"
+        echo ""
+        exit 1
+        ;;
+esac
