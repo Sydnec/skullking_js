@@ -134,3 +134,7 @@ jobs:
           asset_path: ./dist/skull-king-backend-${{ github.ref_name }}.tar.gz
           asset_name: skull-king-backend-${{ github.ref_name }}.tar.gz
           asset_content_type: application/gzip
+          
+      - name: 🚀 Déploiement automatique sur le serveur
+        run: |
+          ./sk deploy
