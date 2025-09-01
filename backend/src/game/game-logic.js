@@ -194,8 +194,7 @@ function resolveTrick(trick) {
   }
   // Regular resolution: Pirates/Tigress-as-Pirate beat number cards, highest number in leading suit wins
   else {
-    const leadCard = trick.cards[0];
-    const leadSuit = leadCard.card.suit;
+    const leadSuit = getLeadingSuit(trick);
     
     if (pirateCards.length > 0) {
       winnerId = pirateCards[0].playerId; // First pirate/tigress-as-pirate played wins
@@ -216,7 +215,7 @@ function resolveTrick(trick) {
         winnerId = highest.playerId;
       } else {
         // If no one followed suit, first card wins
-        winnerId = leadCard.playerId;
+        winnerId = trick.cards[0].playerId;
       }
     }
   }
@@ -231,8 +230,7 @@ function isValidPlay(card, trick, playerHand) {
   // First card of trick can always be played
   if (trick.cards.length === 0) return true;
   
-  const leadCard = trick.cards[0].card;
-  const leadSuit = leadCard.suit;
+  const leadSuit = getLeadingSuit(trick);
   
   // Special cards can always be played
   if (card.type !== 'NUMBER') return true;
@@ -1603,16 +1601,16 @@ function resolveTrickInGameState(gameState) {
     winner = pirateCards[0];
     reason = "Pirate wins";
   } else {
-    // Only number cards and escapes remain
-    const leadCard = trick.cards[0];
-    const leadSuit = leadCard.card.suit;
+    // Only number cards and escapes remain    
+    // Use getLeadingSuit to properly determine the leading suit, ignoring escape cards
+    const leadSuit = getLeadingSuit(trick);
     
     // Get all number cards (excluding escapes)
     const numberCards = trick.cards.filter(c => c.card.type === 'NUMBER');
     
     if (numberCards.length === 0) {
       // Only escape cards - first escape wins (shouldn't happen but safety)
-      winner = leadCard;
+      winner = trick.cards[0];
       reason = "Only escapes, first card wins";
     } else {
       // Find cards that follow the lead suit
