@@ -1,0 +1,153 @@
+.container {
+  background: var(--card);
+  padding: 12px;
+  border-radius: 8px;
+  /* global scroll: limit the total card height and let the whole card scroll */
+  max-height: calc(80vh - 160px);
+  overflow: auto;
+  box-sizing: border-box;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox: keep thin scrollbar */
+}
+.container::-webkit-scrollbar {
+  height: 10px;
+  width: 8px;
+}
+.container::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 8px;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: transparent;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  width: 100%;
+  box-sizing: border-box;
+}
+.left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 180px;
+}
+.statusWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.status {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.green {
+  background: #22c55e; /* green */
+}
+.orange {
+  background: #f97316; /* orange */
+}
+.red {
+  background: #ef4444; /* red */
+}
+.blue {
+  background: #3b82f6; /* blue */
+}
+.tooltip {
+  position: absolute;
+  left: 18px;
+  top: -6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: block;
+  z-index: 20;
+  opacity: 0;
+  transform: translateY(6px);
+  visibility: hidden;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms;
+}
+.statusWrapper:hover .tooltip {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+.code {
+  font-weight: 700;
+}
+.owner {
+  font-size: 12px;
+  color: var(--muted);
+}
+.center {
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 90px;
+  text-align: center;
+}
+.playerCount {
+  position: relative;
+}
+.playerList {
+  text-align: left;
+  margin: 0;
+  padding-left: 12px;
+}
+.playerCount:hover .tooltip {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+.right {
+  min-width: 160px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.btn-plain {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--fg);
+}
+
+/* tooltips pour player list */
+.playerCount:hover .tooltip {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+/* ensure buttons don't overflow */
+.right .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .container {
+    max-height: calc(60vh - 120px);
+  }
+  .right {
+    min-width: 120px;
+  }
+}

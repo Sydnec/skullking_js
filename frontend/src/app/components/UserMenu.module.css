@@ -1,0 +1,22 @@
+.userMenu {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: 8px; /* espace entre le toggle et le menu utilisateur */
+}
+
+.userName {
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.userLabel {
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 6px;
+}
+
+.logoutButton {
+  padding: 6px 10px;
+  border-radius: 8px;
+}

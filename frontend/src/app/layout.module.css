@@ -1,0 +1,134 @@
+/* Layout-specific styles: réduit la hauteur du header et gère spacing global du layout */
+
+.header {
+  padding: 8px 16px; /* réduit la hauteur */
+}
+
+.headerControls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.main {
+  padding-top: 18px; /* léger espacement au-dessus du contenu */
+  padding-bottom: 24px;
+  min-height: calc(100vh - 112px); /* prend en compte header + footer réduits */
+}
+
+.footer {
+  padding: 10px 0; /* footer plus compact */
+}
+
+.titleText {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.titleText h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.titleText .subtitle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Theme toggle */
+.themeToggle {
+  border: none;
+  background: transparent;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.themeToggle:focus-visible {
+  outline: none;
+}
+
+.themeToggle .toggleTrack {
+  width: 44px;
+  height: 28px;
+  background: var(--muted-bg);
+  border-radius: 999px;
+  padding: 3px;
+  position: relative;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.themeToggle .toggleKnob {
+  width: 22px;
+  height: 22px;
+  background: var(--surface);
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+  transition: transform 180ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+}
+
+.themeToggle:hover .toggleKnob {
+  transform: scale(1.03);
+}
+
+.themeToggle:active .toggleKnob {
+  transform: scale(0.99);
+}
+
+.themeToggle.angel .toggleKnob { transform: translateX(0); }
+.themeToggle.demon .toggleKnob { transform: translateX(16px); }
+
+/* accent ring and track color per theme (higher specificity using body theme class) */
+body.theme-angel .themeToggle .toggleTrack { background: rgba(79,155,217,0.07); }
+body.theme-demon  .themeToggle .toggleTrack { background: rgba(217,83,79,0.07); }
+
+body.theme-angel .themeToggle .toggleKnob { border-color: rgba(79,155,217,0.18); background: var(--surface-2); }
+body.theme-demon  .themeToggle .toggleKnob { border-color: rgba(217,83,79,0.18); background: var(--surface-2); }
+
+/* focus ring uses the accent color */
+body.theme-angel .themeToggle:focus-visible .toggleKnob { box-shadow: 0 0 0 6px rgba(79,155,217,0.12); }
+body.theme-demon  .themeToggle:focus-visible .toggleKnob { box-shadow: 0 0 0 6px rgba(217,83,79,0.12); }
+
+/* Normaliser les icônes PNG : taille et fitting */
+.themeToggle .toggleIcon {
+  width: 14px;
+  height: 14px;
+  display: block;
+  object-fit: contain;
+}
+
+/* Ensure PNG icons scale nicely inside the knob and keep consistent padding */
+.themeToggle .toggleIcon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  display: block;
+}
+
+/* petite variante si besoin */
+.themeToggle.small .toggleTrack { width: 36px; height: 22px; }
+.themeToggle.small .toggleKnob { width: 18px; height: 18px; }
+.themeToggle.small.demon .toggleKnob { transform: translateX(12px); }
+
+/* reduce visual flicker by animating background/color changes */
+.themeToggle, .themeToggle .toggleKnob, .themeToggle .toggleTrack {
+  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+@media (max-width: 640px) {
+  .headerControls {
+    gap: 8px;
+  }
+  .themeToggle .toggleTrack { width: 36px; height: 22px; }
+  .themeToggle .toggleKnob { width: 18px; height: 18px; }
+  .themeToggle.demon .toggleKnob { transform: translateX(12px); }
+  .themeToggle .toggleIcon { width: 12px; height: 12px; }
+}

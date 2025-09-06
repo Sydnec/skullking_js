@@ -1,0 +1,200 @@
+.container {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.headerCard {
+  background: var(--card);
+  padding: 18px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.roomInfo {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.codeBox {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 20px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.statusBadge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.statusLobby { background: #e6f4ff; color: #0369a1; }
+.statusRunning { background: #ffe7e7; color: #b91c1c; }
+.statusFinished { background: #f0fdf4; color: #065f46; }
+
+.card {
+  background: var(--card);
+  padding: 14px;
+  border-radius: 8px;
+}
+
+/* By default (desktop): players list is vertical */
+.playersGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: start;
+  /* vertical scroll on desktop */
+  overflow-y: auto;
+  padding-bottom: 6px;
+}
+
+.playerCard {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: white;
+  background: linear-gradient(135deg, #6b7280, #374151);
+}
+
+.ownerBadge {
+  font-size: 11px;
+  background: rgba(0,0,0,0.06);
+  padding: 4px 6px;
+  border-radius: 6px;
+  margin-left: 8px;
+}
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.startBtn {
+  background: linear-gradient(90deg,#10b981,#059669);
+  color: white;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.smallMuted { font-size: 13px; color: var(--muted); }
+
+.copyBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* switch slider */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 26px;
+}
+
+.switch input { display: none; }
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--muted);
+  transition: .2s;
+  border-radius: 999px;
+}
+
+.slider:before {
+  content: '';
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  transition: .2s;
+  border-radius: 50%;
+}
+
+/* use theme accent color when checked; fallback to green if accent not defined */
+.switch input:checked + .slider { background: var(--accent, linear-gradient(90deg,#10b981,#059669)); }
+.switch input:checked + .slider:before { transform: translateX(20px); }
+
+.headerTitle { font-weight: 800; }
+.headerRight { display: flex; gap: 8px; align-items: center; }
+
+.sectionSpacing { margin-top: 10px; }
+.cardSpacing { margin-top: 12px; }
+
+.playerInner { display: flex; align-items: center; gap: 8px; }
+.playerName { font-weight: 600; }
+
+.presenceDot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.presenceDot.present { background: #22c55e; }
+.presenceDot.absent { background: #ef4444; }
+
+.inputSmall { width: 100px; padding: 6px; }
+.selectSmall { width: 100px; padding: 6px; }
+
+.kickBtn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  margin-left: 8px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.kickBtn:hover { background: var(--border); color: var(--accent); }
+
+@media (max-width: 900px) {
+  .container { grid-template-columns: 1fr; padding: 12px; }
+  /* On small screens (mobile), display players horizontally with horizontal scroll */
+  .playersGrid {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 6px;
+    gap: 8px;
+  }
+  .headerCard { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .codeBox { font-size: 18px; }
+  .rightColumn { width: 100%; }
+  .actions { justify-content: space-between; }
+  .startBtn { width: 48%; }
+  .btn-secondary { width: 48%; }
+}

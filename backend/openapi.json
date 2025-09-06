@@ -1,0 +1,188 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "SkullKing API",
+    "version": "1.0.0",
+    "description": "Spécification succincte des endpoints principaux du projet SkullKing — authentification, rooms, roomplayers, messages. Cette spec est volontairement compacte et destinée à la documentation rapide et à la génération de collections Postman."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local dev"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      },
+      "Room": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "ownerId": { "type": "string" },
+          "maxPlayers": { "type": "integer" }
+        }
+      },
+      "RoomPlayer": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "roomId": { "type": "string" },
+          "seat": { "type": ["integer", "null"] }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "roomCode": { "type": "string" },
+          "userId": { "type": "string" },
+          "authorName": { "type": "string" },
+          "text": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login",
+        "description": "Authentifie un utilisateur et retourne un token JWT.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "token": { "type": "string" } } }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "User info",
+        "responses": {
+          "200": { "description": "Current user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/rooms": {
+      "get": {
+        "summary": "Liste des rooms",
+        "responses": {
+          "200": { "description": "Liste", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Room" } } } } }
+        }
+      },
+      "post": {
+        "summary": "Créer une room",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "name": { "type": "string" }, "maxPlayers": { "type": "integer" } }, "required": ["name"] }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Room créée", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Room" } } } },
+          "400": { "description": "Bad request" }
+        }
+      }
+    },
+    "/api/v1/rooms/{code}": {
+      "get": {
+        "summary": "Obtenir une room par code",
+        "parameters": [ { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "200": { "description": "Room", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Room" } } } }, "404": { "description": "Not found" } }
+      }
+    },
+    "/api/v1/rooms/{id}": {
+      "delete": {
+        "summary": "Supprimer une room",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "204": { "description": "Supprimée" }, "403": { "description": "Forbidden" }, "404": { "description": "Not found" } }
+      }
+    },
+    "/api/v1/roomplayers": {
+      "post": {
+        "summary": "Joindre une room (créer RoomPlayer)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "roomCode": { "type": "string" } }, "required": ["roomCode"] } } }
+        },
+        "responses": { "201": { "description": "RoomPlayer créé", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RoomPlayer" } } } }, "400": { "description": "Bad request" } }
+      }
+    },
+    "/api/v1/roomplayers/{id}": {
+      "delete": {
+        "summary": "Quitter une room (supprimer RoomPlayer)",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "204": { "description": "Supprimé" }, "404": { "description": "Not found" } }
+      }
+    },
+    "/api/v1/messages/room/{code}": {
+      "get": {
+        "summary": "Historique messages pour une room",
+        "parameters": [ { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "200": { "description": "Liste de messages", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } } } } } }
+      }
+    },
+    "/api/v1/messages": {
+      "post": {
+        "summary": "Créer un message de chat",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "roomCode": { "type": "string" }, "text": { "type": "string" } }, "required": ["roomCode", "text"] } } }
+        },
+        "responses": { "201": { "description": "Message créé", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } }, "400": { "description": "Bad request" } }
+      }
+    }
+  }
+}

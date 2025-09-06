@@ -1,0 +1,10 @@
+.env
+.env.local
+*.db
+migrations/
+__pycache__/
+node_modules/
+.next/
+dist/
+.DS_Store
+*_tests_report.xml

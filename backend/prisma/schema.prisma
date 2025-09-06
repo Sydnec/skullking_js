@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  passwordHash String
+  createdAt DateTime @default(now())
+  players   RoomPlayer[]
+  messages  Message[]
+  ownedRooms Room[]
+}
+
+model Room {
+  id         String      @id @default(uuid())
+  code       String      @unique
+  ownerId    String
+  owner      User        @relation(fields: [ownerId], references: [id])
+  maxPlayers Int
+  settings   Json
+  status     String
+  players    RoomPlayer[]
+  messages   Message[]
+  game       Game?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model RoomPlayer {
+  id         String @id @default(uuid())
+  roomId     String
+  room       Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User   @relation(fields: [userId], references: [id])
+  seat       Int?
+  score      Int    @default(0)
+  connected  Boolean @default(true)
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model Game {
+  id                String   @id @default(uuid())
+  roomId            String   @unique
+  room              Room     @relation(fields:[roomId], references:[id], onDelete: Cascade)
+  format            String
+  currentRound      Int
+  totalRounds       Int
+  state             GameState
+  createdAt         DateTime @default(now())
+  finishedAt        DateTime?
+  rounds            Round[]
+}
+
+model Round {
+  id         String   @id @default(uuid())
+  gameId     String
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  number     Int
+  handSize   Int
+  dealerId   String?
+  phase      RoundPhase @default(PREDICTION)
+  startedAt  DateTime?
+  finishedAt DateTime?
+  tricks     Trick[]
+  hands      Hand[]
+  predictions Prediction[]
+  predictionsCount Int?
+  createdAt  DateTime @default(now())
+}
+
+model Prediction {
+  id        String @id @default(uuid())
+  roundId   String
+  round     Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  playerId  String
+  predicted Int
+  createdAt DateTime @default(now())
+}
+
+model Trick {
+  id        String @id @default(uuid())
+  roundId   String
+  round     Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  index     Int
+  starterId String?
+  plays     Play[]
+  winnerId  String?
+  createdAt DateTime @default(now())
+}
+
+model Play {
+  id        String @id @default(uuid())
+  trickId   String
+  trick     Trick  @relation(fields: [trickId], references: [id], onDelete: Cascade)
+  handCardId String
+  handCard  HandCard @relation(fields: [handCardId], references: [id], onDelete: Cascade)
+  playerId  String
+  playOrder Int
+  // choix éventuel lors de cartes spéciales (ex: Tigress -> PIRATE ou ESCAPE)
+  playChoice PlayChoice?
+  createdAt DateTime @default(now())
+}
+
+model Hand {
+  id        String @id @default(uuid())
+  roundId   String
+  round     Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  playerId  String
+  cards     HandCard[]
+}
+
+model HandCard {
+  id        String @id @default(uuid())
+  handId    String
+  hand      Hand   @relation(fields: [handId], references: [id], onDelete: Cascade)
+  cardId    String
+  card      Card   @relation(fields: [cardId], references: [id])
+  position  Int?
+  createdAt DateTime @default(now())
+  plays     Play[]
+}
+
+model Card {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  label     String?
+  cardType  CardType
+  suit      Suit?    // couleur/suit pour les cartes NUMBER; nullable pour les cartes spéciales
+  rank      Int?     // valeur/numéro pour les cartes NUMBER (ex: 1..14); nullable pour les cartes spéciales
+  createdAt DateTime @default(now())
+  handCards HandCard[]
+}
+
+enum GameState {
+  LOBBY
+  RUNNING
+  PAUSED
+  FINISHED
+}
+
+enum RoundPhase {
+  PREDICTION
+  PLAY
+  SCORING
+  DONE
+}
+
+enum CardType {
+  NUMBER
+  PIRATE
+  SKULLKING
+  ESCAPE
+  WHITEWHALE
+  KRAKEN
+  LOOT
+  TIGRESS
+  MERMAID
+  SPECIAL
+}
+
+enum PlayChoice {
+  PIRATE
+  ESCAPE
+}
+
+enum Suit {
+  BLACK
+  GREEN
+  PURPLE
+  YELLOW
+}

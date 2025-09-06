@@ -1,0 +1,102 @@
+/* filepath: /home/sydnec/skullking_js/frontend/src/app/login/page.module.css */
+
+/* recentre la card verticalement et donne un padding local spécifique à la page de login */
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-44px);
+  min-height: calc(100vh - 88px);
+  margin: 0;
+  padding: 32px 20px;
+}
+
+/* léger ajustement local de la card (hérite néanmoins des styles globaux .card) */
+.card {
+  width: 520px;
+  max-width: 95%;
+  border-radius: 14px;
+  padding: 48px 36px 36px 36px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* espace égal entre titre, inputs et actions */
+  gap: 50px;
+}
+
+/* légère augmentation de l'espacement entre les deux inputs */
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 22px; /* petit écart supplémentaire */
+  flex: 0 0 auto;
+  padding-top: 0;
+  justify-content: flex-start;
+}
+
+/* inputs à l'intérieur de la card — même hauteur visuelle que les boutons */
+.card :global(.input) {
+  padding: 12px 16px;
+  font-size: 16px;
+  border-radius: 8px;
+  min-height: 48px; /* même hauteur que les boutons */
+}
+
+/* s'assurer que les boutons ont la même min-height */
+.btn-primary,
+.btn-secondary,
+.actions .btn {
+  padding: 12px 16px;
+  font-size: 16px;
+  border-radius: 8px;
+  min-height: 48px;
+}
+
+@media (max-width: 640px) {
+  .form-row {
+    gap: 14px;
+  }
+  .card :global(.input) {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+  .btn-primary,
+  .btn-secondary,
+  .actions .btn {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 12px 16px;
+  font-size: 16px;
+  border-radius: 8px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+}
+
+.title {
+  color: var(--accent);
+}
+
+.msg {
+  margin-top: 12px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+
+.error {
+    color: var(--error);
+    margin-top: -12px;
+    font-size: 12px;
+    margin-bottom: -25px;
+}

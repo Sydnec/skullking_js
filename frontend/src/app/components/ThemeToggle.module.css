@@ -1,0 +1,77 @@
+:root {
+  /* default knob translate for reference */
+  --knob-x: 0px;
+}
+
+.themeToggle {
+  border: none;
+  background: transparent;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.angel { --knob-x: 0px; }
+.demon { --knob-x: 20px; }
+
+.toggleTrack {
+  /* increased size */
+  width: 54px;
+  height: 34px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 999px;
+  padding: 4px;
+  position: relative;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.toggleKnob {
+  /* increased size */
+  width: 26px;
+  height: 26px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+  transition: transform 180ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  /* apply translate + scale via variable to preserve position on hover */
+  transform: translateX(var(--knob-x)) scale(1);
+}
+
+/* hover and active scale while keeping translateX */
+.themeToggle:hover .toggleKnob { transform: translateX(var(--knob-x)) scale(1.06); }
+.themeToggle:active .toggleKnob { transform: translateX(var(--knob-x)) scale(0.98); }
+
+/* icon sizing */
+.toggleIcon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+}
+
+/* theme-specific track colors */
+.angel .toggleTrack,
+.demon .toggleTrack { background: var(--card); }
+
+.themeToggle:focus-visible .toggleKnob { outline: none; }
+.angel:focus-visible .toggleKnob { box-shadow: 0 0 0 6px rgba(79,155,217,0.12); }
+.demon:focus-visible .toggleKnob { box-shadow: 0 0 0 6px rgba(217,83,79,0.12); }
+
+/* transitions */
+.themeToggle, .toggleKnob, .toggleTrack { transition: background-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease; }
+
+@media (max-width: 640px) {
+  .toggleTrack { width: 44px; height: 28px; padding: 3px; }
+  .toggleKnob { width: 22px; height: 22px; }
+  .demon .toggleKnob { /* adjust translate for smaller track */
+    --knob-x: 16px;
+    transform: translateX(var(--knob-x)) scale(1);
+  }
+  .toggleIcon { width: 14px; height: 14px; }
+}

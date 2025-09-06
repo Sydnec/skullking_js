@@ -1,0 +1,157 @@
+.chatWrap {
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  /* animation */
+  transition: transform 0.18s cubic-bezier(.2,.9,.2,1), opacity 0.18s ease;
+  transform-origin: bottom right;
+}
+.chatHeader {
+  padding: 8px 10px;
+  background: var(--card);
+  cursor: pointer;
+  font-weight: 600;
+  min-width: 120px; /* ensure minimum width */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+/* small unread dot */
+.unreadDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.06) inset;
+}
+/* chatBody will animate via max-height instead of display:none */
+.chatBody {
+  padding: 8px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.34s cubic-bezier(.2,.8,.2,1), opacity 0.22s ease;
+  opacity: 0;
+}
+.messages {
+  max-height: 220px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.msgRow {
+  display: flex;
+}
+.msgRowLeft {
+  justify-content: flex-start;
+}
+.msgRowRight {
+  justify-content: flex-end;
+}
+.bubble {
+  padding: 8px;
+  border-radius: 10px;
+  max-width: 78%;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.bubbleMine {
+  background: var(--accent);
+  color: var(--fg);
+}
+.bubbleOther {
+  background: var(--border);
+  color: var(--fg);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+.authorMine {
+  color: var(--fg);
+  font-weight: bold;
+}
+.authorOther {
+  color: var(--fg);
+  font-weight: bold;
+}
+.msgMeta {
+  font-size: 12px;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.msgTime {
+  color: var(--fg);
+  margin-left: 15px;
+}
+.msgText {
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.chatInputRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.chatInput {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* Floating container */
+.chatContainer {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  width: 320px;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.chatContainer.collapsed {
+  width: auto;
+}
+
+.chatContainer .chatWrap {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+}
+
+/* remove display:none and use max-height animation */
+.chatContainer.collapsed .chatBody {
+  max-height: 0;
+  opacity: 0;
+}
+
+.chatContainer.expanded .chatBody {
+  /* allow room for messages + input */
+  max-height: 420px;
+  opacity: 1;
+}
+
+.chatContainer.collapsed .chatHeader {
+  border-radius: 20px;
+  padding: 10px 14px;
+}
+
+.chatContainer.collapsed .chatWrap {
+  width: auto;
+  transform: translateY(6px) scale(0.985);
+  opacity: 0.94;
+}
+
+.chatContainer.expanded .chatWrap {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.chatContainer.expanded {
+  width: 320px;
+}
+
+/* ensure messages area looks good in floating window */
+.chatContainer .messages {
+  max-height: 260px;
+}

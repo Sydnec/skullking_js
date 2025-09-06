@@ -1,0 +1,17 @@
+{
+  "name": "skullking",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "install:all": "npm install",
+    "postinstall": "npm --workspace backend run prisma:generate || true",
+    "dev": "concurrently \"npm --workspace backend run dev\" \"npm --workspace frontend run dev\"",
+    "build": "npm --workspace backend run build && npm --workspace frontend run build",
+    "start": "npm --workspace backend run start & npm --workspace frontend run start",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}

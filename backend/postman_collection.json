@@ -1,0 +1,59 @@
+{
+  "info": {
+    "name": "SkullKing API - Generated",
+    "_postman_id": "skullking-api-generated",
+    "description": "Collection Postman générée automatiquement à partir de backend/openapi.json - endpoints principaux: auth, rooms, roomplayers, messages.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api/v1" },
+    { "key": "jwt", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"email\": \"test@example.com\", \"password\": \"secret\" }" },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200 or 201', function () { pm.expect(pm.response.code).to.be.oneOf([200,201]); });",
+            "var json = pm.response.json();",
+            "if (json && json.token) pm.environment.set('jwt', json.token);"
+          ] } }]
+        },
+        {
+          "name": "GET /auth/me",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }], "url": "{{baseUrl}}/auth/me" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200 or 401', function () { pm.expect(pm.response.code).to.be.oneOf([200,401]); });"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Rooms",
+      "item": [
+        { "name": "GET /rooms", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }], "url": "{{baseUrl}}/rooms" } },
+        { "name": "POST /rooms", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{jwt}}" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Ma room test\", \"maxPlayers\": 6 }" }, "url": "{{baseUrl}}/rooms" } },
+        { "name": "GET /rooms/{code}", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }], "url": "{{baseUrl}}/rooms/{{room_code}}" } }
+      ]
+    },
+    {
+      "name": "RoomPlayers",
+      "item": [
+        { "name": "POST /roomplayers (join)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{jwt}}" }], "body": { "mode": "raw", "raw": "{ \"roomCode\": \"{{room_code}}\" }" }, "url": "{{baseUrl}}/roomplayers" } }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        { "name": "GET /messages/room/{code}", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }], "url": "{{baseUrl}}/messages/room/{{room_code}}" } },
+        { "name": "POST /messages", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{jwt}}" }], "body": { "mode": "raw", "raw": "{ \"roomCode\": \"{{room_code}}\", \"text\": \"Bonjour tout le monde\" }" }, "url": "{{baseUrl}}/messages" } }
+      ]
+    }
+  ]
+}
