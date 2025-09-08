@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import styles from './Chat.module.css';
 import { io } from 'socket.io-client';
+import { apiFetch } from '../../lib/api';
 
 type Message = { id: string; userId: string; userName: string; text: string; createdAt: string };
 
@@ -13,7 +14,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
       const key = `chat_open_${roomCode || 'global'}`;
       const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
       return raw === '1' || raw === 'true';
-    } catch (e) {
+    } catch {
       return false;
     }
   });
@@ -35,14 +36,14 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
 
   // load persisted open state on mount or when roomCode changes
   // (initial value now read synchronously in useState initializer)
-  useEffect(() => { try { openRef.current = open; } catch (e) {} }, [open]);
+  useEffect(() => { try { openRef.current = open; } catch {} }, [open]);
 
   // persist open state when it changes
   useEffect(() => {
     try {
       const key = `chat_open_${roomCode || 'global'}`;
       localStorage.setItem(key, open ? '1' : '0');
-    } catch (e) {}
+    } catch {}
   }, [open, roomCode]);
 
   useEffect(()=>{
@@ -60,7 +61,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
     async function load() {
       if (!roomCode) return;
       try {
-        const res = await fetch(`/api/v1/messages/room/${roomCode}`);
+        const res = await apiFetch(`/messages/room/${roomCode}`);
         if (res.ok) {
           const arr = await res.json();
           // normalize messages
@@ -74,7 +75,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
   // WebSocket: subscribe to chat events for this room
   useEffect(() => {
     if (!roomCode) return;
-    const url = (typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_WS_URL || window.location.origin)) || undefined;
+    const url = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || window.location.origin;
     // Normal Socket.IO initialization (allow upgrades)
     const socket = io(url);
 
@@ -84,7 +85,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
         const uid = raw ? (JSON.parse(raw || '{}')?.user?.id || JSON.parse(raw || '{}')?.id || null) : null;
         socket.emit('join-room', { code: roomCode, userId: uid });
         // connected
-      } catch (e) {
+      } catch {
         // ignore
       }
     });
@@ -112,13 +113,13 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
           if (!openRef.current) setHasUnread(true);
           return [...prev, nm];
         });
-      } catch (e) {}
+      } catch {}
     });
 
     // keep default socket.io reconnect handling; no verbose logging here
 
     return () => {
-      try { socket.disconnect(); } catch (e) {}
+      try { socket.disconnect(); } catch {}
     };
   }, [roomCode]);
 
@@ -127,11 +128,11 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
     if (!open) return;
     // essayer un raf pour laisser le DOM se mettre à jour
     const rafId = requestAnimationFrame(() => {
-      try { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; } catch (e) {}
+      try { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; } catch {}
     });
     // fallback au cas où : laisser le temps à l'animation CSS (max-height) de se terminer
     const fallback = setTimeout(() => {
-      try { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; } catch (e) {}
+      try { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; } catch {}
     }, 160);
     return () => { cancelAnimationFrame(rafId); clearTimeout(fallback); };
   }, [messages, open]);
@@ -141,7 +142,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
     if (!open) return;
     // la transition de max-height est ~340ms dans le CSS ; utiliser un délai un peu plus court ou égal
     const timer = setTimeout(() => {
-      try { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; } catch (e) {}
+      try { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; } catch {}
     }, 360);
     return () => clearTimeout(timer);
   }, [open]);
@@ -170,7 +171,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
       // clear input immediately
       setText('');
 
-      const res = await fetch(`/api/v1/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify(body) });
+      const res = await apiFetch(`/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify(body) });
       if (!res.ok) return;
 
       // Try to append/replace with canonical message returned by API
@@ -194,7 +195,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
           });
         }
       }
-    } catch (e) {}
+    } catch {}
   }
 
   // submit on Enter
@@ -209,7 +210,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
   function toggleOpen() {
     try {
       setOpen(prev => { const next = !prev; if (next) setHasUnread(false); return next; });
-    } catch (e) {}
+    } catch {}
   }
 
   if (!visible) return null;

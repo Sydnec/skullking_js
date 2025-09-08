@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '../../lib/api';
 import styles from './page.module.css';
 
 export default function LoginPage() {
@@ -50,7 +51,7 @@ export default function LoginPage() {
 
     try {
       return JSON.stringify(input).slice(0, 300);
-    } catch (e) {
+    } catch {
       return 'Une erreur inconnue est survenue.';
     }
   }
@@ -70,7 +71,7 @@ export default function LoginPage() {
           router.push(dest);
           return true;
         }
-      } catch (e) {}
+      } catch {}
       router.push('/');
       return true;
     }
@@ -81,7 +82,7 @@ export default function LoginPage() {
   async function login() {
     setMsg('');
     try {
-      const res = await fetch('/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
+      const res = await apiFetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
       await handleAuthResponse(res);
     } catch (e: any) {
       setMsg(formatErrorMessage(e));
@@ -91,7 +92,7 @@ export default function LoginPage() {
   async function register() {
     setMsg('');
     try {
-      const res = await fetch('/api/v1/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
+      const res = await apiFetch('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
       await handleAuthResponse(res);
     } catch (e: any) {
       setMsg(formatErrorMessage(e));

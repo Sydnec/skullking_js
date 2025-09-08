@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { io as ioClient, Socket } from 'socket.io-client';
+import { apiFetch } from '../../lib/api';
 import styles from './RoomPage.module.css';
 import Dropdown from '../components/Dropdown';
 import Tooltip from '../components/Tooltip';
@@ -56,7 +57,7 @@ export default function RoomPage() {
     const auth = localStorage.getItem('auth');
     if (!auth) {
       // remember intended path so login can redirect back
-      try { localStorage.setItem('afterLoginRedirect', window.location.pathname); } catch (e) {}
+      try { localStorage.setItem('afterLoginRedirect', window.location.pathname); } catch { /* ignore */ }
       router.replace('/login');
       return;
     }
@@ -66,17 +67,17 @@ export default function RoomPage() {
       const parsed = JSON.parse(auth);
       const id = parsed?.user?.id || parsed?.id || parsed?.userId || parsed?.sub || null;
       setUserId(id || null);
-    } catch (e) {
+    } catch {
       setUserId(null);
     }
     // firstLoadRef est déclaré en haut du composant; auto-join est toujours activé
 
     async function fetchRoom() {
       try {
-        const res = await fetch(`/api/v1/rooms/${code}`);
+        const res = await apiFetch(`/rooms/${code}`);
         if (res.status === 404) {
           // salle introuvable -> rediriger vers l'accueil
-          try { router.replace('/'); } catch (e) {}
+          try { router.replace('/'); } catch { /* ignore */ }
           return;
         }
         const data = await res.json();
@@ -94,13 +95,13 @@ export default function RoomPage() {
               const currentCount = (data?.players || []).length;
               if (currentCount >= maxPlayers) {
                 await showAlert('La table est complète, impossible de rejoindre.');
-                try { router.replace('/'); } catch (e) {}
+                try { router.replace('/'); } catch {}
               } else {
                 try {
                   // Use the same join endpoint as the room list / home page to ensure server-side checks
                   const raw = localStorage.getItem('auth');
                   const token = raw ? (JSON.parse(raw)?.token || null) : null;
-                  const joinRes = await fetch(`/api/v1/rooms/${code}/join`, {
+                  const joinRes = await apiFetch(`/rooms/${code}/join`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                     body: JSON.stringify({})
@@ -108,42 +109,42 @@ export default function RoomPage() {
                   if (!joinRes.ok) {
                     const err = await joinRes.json().catch(() => ({}));
                     await showAlert('Impossible de rejoindre la table : ' + (err?.error || err?.message || 'Erreur serveur'));
-                    try { router.replace('/'); } catch (e) {}
+                    try { router.replace('/'); } catch {}
                   } else {
                     // refresh room data from server after successful join
-                    const r2 = await fetch(`/api/v1/rooms/${code}`);
+                    const r2 = await apiFetch(`/rooms/${code}`);
                     if (r2.ok) {
                       const fetched = await r2.json();
                       setRoom((prev:any) => ({ ...(fetched || {}), __presentUserIds: prev?.__presentUserIds || fetched?.__presentUserIds || [] }));
                     }
                   }
-                } catch (e) {
+                } catch {
                   await showAlert('Erreur lors de la tentative de rejoindre la table.');
-                  try { router.replace('/'); } catch (e) {}
+                  try { router.replace('/'); } catch {}
                 }
               }
             } else {
               // not initial load and not present -> user probably kicked, redirect
               if (!firstLoadRef.current && uid) {
                 await showAlert('Vous avez été retiré de la table.');
-                try { router.replace('/'); } catch (e) {}
+                try { router.replace('/'); } catch {}
               }
             }
           }
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore */ }
 
-      } catch (e) {
+      } catch {
         setStatus('UNKNOWN');
       }
     }
     fetchRoom();
 
     // after initial fetch, flip firstLoadRef to false so subsequent socket-triggered fetches don't auto-join
-    setTimeout(() => { try { firstLoadRef.current = false; } catch (e) {} }, 800);
+    setTimeout(() => { try { firstLoadRef.current = false; } catch {} }, 800);
 
     let socket: Socket | null = null;
     try {
-      const url = (typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_WS_URL || window.location.origin)) || undefined;
+      const url = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || window.location.origin;
       socket = ioClient(url);
       socket.on('connect', () => {
         socket?.emit('join-room', { code, userId: (localStorage.getItem('auth') ? JSON.parse(localStorage.getItem('auth') || '{}')?.user?.id : null) });
@@ -154,11 +155,11 @@ export default function RoomPage() {
       socket.on('presence-updated', (payload: any) => {
         setRoom((r: any) => ({ ...(r || {}), __presentUserIds: payload?.presentUserIds || [] }));
       });
-    } catch (e) {}
+    } catch {}
 
     return () => {
       if (socket) {
-        try { socket.off('room-updated'); socket.off('player-joined'); socket.off('room-list-updated'); socket.disconnect(); } catch (e) { }
+        try { socket.off('room-updated'); socket.off('player-joined'); socket.off('room-list-updated'); socket.disconnect(); } catch { }
       }
     };
   }, [router]);
@@ -169,7 +170,7 @@ export default function RoomPage() {
     if (!id) {
       const raw = localStorage.getItem('auth');
       if (raw) {
-        try { const parsed = JSON.parse(raw); id = parsed?.user?.id || parsed?.id || parsed?.userId || parsed?.sub || null; } catch (e) { }
+        try { const parsed = JSON.parse(raw); id = parsed?.user?.id || parsed?.id || parsed?.userId || parsed?.sub || null; } catch { }
       }
     }
     if (!id) { await showAlert('Utilisateur non identifié'); return; }
@@ -179,7 +180,7 @@ export default function RoomPage() {
     try {
       const raw = localStorage.getItem('auth');
       const token = raw ? (JSON.parse(raw)?.token || null) : null;
-      const res = await fetch(`/api/v1/rooms/${room.code}/start`, {
+      const res = await apiFetch(`/rooms/${room.code}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({})
@@ -192,7 +193,7 @@ export default function RoomPage() {
       const data = await res.json().catch(() => null);
       if (data?.room) { applyRoomData(data.room); }
       showToast('Partie démarrée');
-    } catch (e) {
+    } catch {
       await showAlert('Erreur lors du démarrage');
     }
   }
@@ -206,10 +207,10 @@ export default function RoomPage() {
       try {
         const raw = localStorage.getItem('auth');
         const token = raw ? (JSON.parse(raw)?.token || null) : null;
-        const res = await fetch(`/api/v1/rooms/${room.code}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+        const res = await apiFetch(`/rooms/${room.code}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
         if (!res.ok) { await showAlert('Erreur lors de la suppression du salon'); return; }
         router.push('/');
-      } catch (e) { await showAlert('Erreur lors de la suppression'); }
+      } catch { await showAlert('Erreur lors de la suppression'); }
       return;
     }
 
@@ -219,10 +220,10 @@ export default function RoomPage() {
     try {
       const raw = localStorage.getItem('auth');
       const token = raw ? (JSON.parse(raw)?.token || null) : null;
-      const res = await fetch(`/api/v1/roomplayers/${rp.id}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+      const res = await apiFetch(`/roomplayers/${rp.id}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
       if (!res.ok) { await showAlert('Erreur lors de la sortie de la table'); return; }
       router.push('/');
-    } catch (e) { await showAlert('Erreur lors de la sortie'); }
+    } catch { await showAlert('Erreur lors de la sortie'); }
   }
 
   async function toggleSetting(key: string) {
@@ -233,7 +234,7 @@ export default function RoomPage() {
     try {
       const raw = localStorage.getItem('auth');
       const token = raw ? (JSON.parse(raw)?.token || null) : null;
-      const res = await fetch(`/api/v1/rooms/${room.code}`, {
+      const res = await apiFetch(`/rooms/${room.code}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ settings: next })
@@ -241,7 +242,7 @@ export default function RoomPage() {
       if (!res.ok) { const err = await res.json().catch(() => ({})); await showAlert('Erreur mise à jour paramètres: ' + (err?.error || err?.message || 'Erreur')); return; }
       setRoom((r: any) => ({ ...(r || {}), settings: next }));
       showToast('Paramètres mis à jour');
-    } catch (e) { await showAlert('Erreur lors de la mise à jour'); }
+    } catch { await showAlert('Erreur lors de la mise à jour'); }
   }
 
   async function updateSetting(key: string, value: any) {
@@ -252,7 +253,7 @@ export default function RoomPage() {
     try {
       const raw = localStorage.getItem('auth');
       const token = raw ? (JSON.parse(raw)?.token || null) : null;
-      const res = await fetch(`/api/v1/rooms/${room.code}`, {
+      const res = await apiFetch(`/rooms/${room.code}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ settings: next, maxPlayers: room.maxPlayers })
@@ -260,7 +261,7 @@ export default function RoomPage() {
       if (!res.ok) { const err = await res.json().catch(() => ({})); await showAlert('Erreur mise à jour paramètres: ' + (err?.error || err?.message || 'Erreur')); return; }
       setRoom((r: any) => ({ ...(r || {}), settings: next }));
       showToast('Paramètre mis à jour');
-    } catch (e) { await showAlert('Erreur lors de la mise à jour'); }
+    } catch { await showAlert('Erreur lors de la mise à jour'); }
   }
 
   async function updateMaxPlayers(n: number) {
@@ -270,7 +271,7 @@ export default function RoomPage() {
     try {
       const raw = localStorage.getItem('auth');
       const token = raw ? (JSON.parse(raw)?.token || null) : null;
-      const res = await fetch(`/api/v1/rooms/${room.code}`, {
+      const res = await apiFetch(`/rooms/${room.code}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ maxPlayers: nextMax })
@@ -278,7 +279,7 @@ export default function RoomPage() {
       if (!res.ok) { await showAlert('Erreur mise à jour maxPlayers'); return; }
       setRoom((r: any) => ({ ...(r || {}), maxPlayers: nextMax }));
       showToast('Nombre maximal mis à jour');
-    } catch (e) { await showAlert('Erreur lors de la mise à jour'); }
+    } catch { await showAlert('Erreur lors de la mise à jour'); }
   }
 
   async function copyCode() {
@@ -298,7 +299,7 @@ export default function RoomPage() {
         await navigator.clipboard.writeText(text);
         return true;
       }
-    } catch (e) {
+    } catch {
       // ignore and fallback
     }
     try {
@@ -312,7 +313,7 @@ export default function RoomPage() {
       const res = document.execCommand('copy');
       document.body.removeChild(textarea);
       return !!res;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -357,17 +358,17 @@ export default function RoomPage() {
                       try {
                         const raw = localStorage.getItem('auth');
                         const token = raw ? (JSON.parse(raw)?.token || null) : null;
-                        const res = await fetch(`/api/v1/roomplayers/${p.id}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+                        const res = await apiFetch(`/roomplayers/${p.id}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
                         if (!res.ok) { await showAlert('Erreur lors de l’expulsion'); return; }
                         showToast('Joueur expulsé');
                         // actualiser en préservant les présences locales
                         const path = window.location.pathname; const code = path.replace('/', '');
-                        const r = await fetch(`/api/v1/rooms/${code}`);
+                        const r = await apiFetch(`/rooms/${code}`);
                         if (r.ok) {
                           const fetched = await r.json();
                           setRoom((prev: any) => ({ ...(fetched || {}), __presentUserIds: prev?.__presentUserIds || fetched?.__presentUserIds || [] }));
                         }
-                      } catch (e) { await showAlert('Erreur lors de l’expulsion'); }
+                      } catch { await showAlert('Erreur lors de l’expulsion'); }
                     }}>✖</button>
                   )}
                 </div>

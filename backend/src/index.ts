@@ -13,12 +13,48 @@ dotenv.config();
 
 async function start() {
   const app = express();
-  app.use(cors());
+  
+  // Configuration CORS cohérente pour Express et Socket.IO
+  const corsOptions = {
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  };
+  
+  app.use(cors(corsOptions));
   app.use(express.json());
 
+  // Debug middleware pour CORS
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    console.log(`🌐 Request from origin: ${origin}`);
+    if (origin && corsOptions.origin !== '*') {
+      const allowedOrigins = Array.isArray(corsOptions.origin) ? corsOptions.origin : [corsOptions.origin];
+      if (!allowedOrigins.includes(origin)) {
+        console.log(`❌ Origin ${origin} not in allowed list: ${allowedOrigins.join(', ')}`);
+      } else {
+        console.log(`✅ Origin ${origin} is allowed`);
+      }
+    }
+    next();
+  });
+
   const httpServer = createServer(app);
+  
+  // Configuration Socket.IO CORS très permissive pour debug
+  console.log('🔧 Initializing Socket.IO with CORS config...');
+  console.log('🌐 ALLOWED_ORIGINS:', process.env.ALLOWED_ORIGINS);
+  
   const io = new IOServer(httpServer, {
-    cors: { origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*' }
+    cors: {
+      origin: "*",  // Temporairement très permissif pour debug
+      methods: ["GET", "POST"],
+      allowedHeaders: ["*"],
+      credentials: true
+    },
+    allowEIO3: true,
+    transports: ['polling', 'websocket']
   });
 
   // Expose socket server reference

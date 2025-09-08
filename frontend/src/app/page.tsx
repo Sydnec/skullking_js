@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '../lib/api';
 import RoomList from './components/RoomList';
 import styles from './page.module.css';
 
@@ -23,7 +24,7 @@ export default function HomePage() {
         router.replace('/login');
         return;
       }
-    } catch (e) {
+    } catch {
       router.replace('/login');
       return;
     }
@@ -43,7 +44,7 @@ export default function HomePage() {
       const genCode = Math.random().toString(36).substring(2, 7).toUpperCase();
       const payload = { code: genCode, maxPlayers: 8, settings: {}, status: 'LOBBY' };
       const token = parsed?.token || null;
-      const res = await fetch('/api/v1/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
+      const res = await apiFetch('/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
       if (!res.ok) {
         const txt = await res.text();
         alert('Erreur création table: ' + txt);
@@ -62,13 +63,13 @@ export default function HomePage() {
     const trim = (input || '').trim();
     if (!trim) return;
     try {
-      const res = await fetch('/api/v1/rooms');
+      const res = await apiFetch('/rooms');
       if (!res.ok) { setJoinError('Erreur serveur lors de la vérification'); return; }
       const rooms = await res.json();
       const found = rooms.find((r: any) => r.id === trim || (r.code && String(r.code).toLowerCase() === trim.toLowerCase()));
       if (!found) {
         // salle introuvable -> rediriger vers l'accueil
-        try { router.replace('/'); } catch (e) {}
+        try { router.replace('/'); } catch { /* ignore */ }
         return;
       }
 
@@ -89,7 +90,7 @@ export default function HomePage() {
         const token = parsed?.token || null;
         if (!userId) { setJoinError('Utilisateur non identifié'); return; }
 
-        const joinRes = await fetch(`/api/v1/rooms/${found.code}/join`, {
+        const joinRes = await apiFetch(`/rooms/${found.code}/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: JSON.stringify({})

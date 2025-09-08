@@ -1,15 +1,39 @@
-version: "3.8"
 services:
   db:
     image: postgres:17
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: skullking_db
+      POSTGRES_USER: ${POSTGRES_USER:-skullking_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-skullking_production}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-prod-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - skullking-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-skullking_user}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-skullking_production}
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=3001
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - skullking-network
 
 volumes:
-  db-data:
+  db-prod-data:
+
+networks:
+  skullking-network:
+    driver: bridge

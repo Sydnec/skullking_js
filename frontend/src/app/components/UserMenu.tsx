@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '../../lib/api';
 import styles from './UserMenu.module.css';
 
 function decodeJwtName(token?: string | null) {
@@ -16,7 +17,7 @@ function decodeJwtName(token?: string | null) {
     const json = typeof window !== 'undefined' ? window.atob(payload) : Buffer.from(payload, 'base64').toString('utf8');
     const obj = JSON.parse(json);
     return obj?.name || obj?.username || null;
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -38,7 +39,7 @@ export default function UserMenu() {
       // fallback: try decode token
       const token = parsed?.token || parsed?.accessToken || parsed?.access_token || null;
       return decodeJwtName(token);
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -60,11 +61,11 @@ export default function UserMenu() {
         const refreshToken = parsed?.refreshToken;
         if (refreshToken) {
           try {
-            await fetch('/api/v1/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
-          } catch (e) {}
+            await apiFetch('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+          } catch {}
         }
       }
-    } catch (e) {}
+    } catch {}
     localStorage.removeItem('auth');
     window.dispatchEvent(new Event('auth:changed'));
     router.replace('/login');

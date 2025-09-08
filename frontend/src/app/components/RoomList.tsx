@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../../lib/api';
 import styles from './RoomList.module.css';
 import Tooltip from './Tooltip';
 import { io as ioClient, Socket } from 'socket.io-client';
@@ -20,7 +21,7 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
         const id = parsed?.user?.id || parsed?.id || parsed?.userId || parsed?.sub || null;
         setUserId(id || null);
       }
-    } catch (e) {
+    } catch {
       setUserId(null);
     }
 
@@ -30,7 +31,7 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
     // Init socket connection to listen for room updates
     let socket: Socket | null = null;
     try {
-      const url = (typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_WS_URL || window.location.origin)) || undefined;
+      const url = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || window.location.origin;
       socket = ioClient(url);
 
       socket.on('connect', () => {
@@ -57,7 +58,7 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
         socket.off('room-created');
         socket.off('room-list-updated');
         socket.off('player-joined');
-        try { socket.disconnect(); } catch (e) { /* ignore */ }
+        try { socket.disconnect(); } catch { /* ignore */ }
       }
     };
   }, []);
@@ -66,7 +67,7 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch('/api/v1/rooms');
+      const res = await apiFetch('/rooms');
       if (!res.ok) throw new Error('Erreur fetch rooms');
       const data = await res.json();
       setRooms(data || []);
@@ -152,7 +153,7 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
                           <li><strong>Butin :</strong> {s.loot ? 'Oui' : 'Non'}</li>
                         </ul>
                       );
-                    } catch (e) { return r.code; }
+                    } catch { return r.code; }
                   })()}>
                     <div className={styles.code}>{r.code}</div>
                   </Tooltip>
