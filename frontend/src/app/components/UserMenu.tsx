@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '../../lib/api';
+import { apiFetchWithAuth } from '../../lib/api';
+import { useAuth } from '../../lib/useAuth';
 import styles from './UserMenu.module.css';
 
 function decodeJwtName(token?: string | null) {
@@ -24,57 +25,36 @@ function decodeJwtName(token?: string | null) {
 
 export default function UserMenu() {
   const router = useRouter();
+  const { user, token, logout } = useAuth();
   const [name, setName] = useState<string | null>(null);
 
-  function readName() {
-    try {
-      if (typeof window === 'undefined') return null;
-      const raw = localStorage.getItem('auth');
-      if (!raw) return null;
-      const parsed = JSON.parse(raw || '{}');
-      // Prefer normalized shape
-      if (parsed?.user?.name) return parsed.user.name;
-      if (parsed?.user?.username) return parsed.user.username;
-      if (parsed?.name) return parsed.name;
-      // fallback: try decode token
-      const token = parsed?.token || parsed?.accessToken || parsed?.access_token || null;
-      return decodeJwtName(token);
-    } catch {
-      return null;
-    }
-  }
-
   useEffect(() => {
-    setName(readName());
-    function onAuth() { setName(readName()); }
+    try {
+      const n = user?.name || user?.username || decodeJwtName(token) || null;
+      setName(n);
+    } catch {
+      setName(null);
+    }
+    function onAuth() { try { const n = user?.name || user?.username || decodeJwtName(token) || null; setName(n); } catch { setName(null); } }
     window.addEventListener('auth:changed', onAuth);
     return () => window.removeEventListener('auth:changed', onAuth);
-  }, []);
+  }, [user, token]);
 
   if (!name) return null;
 
-  async function logout() {
+  async function doLogout() {
     try {
-      const raw = localStorage.getItem('auth');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const refreshToken = parsed?.refreshToken;
-        if (refreshToken) {
-          try {
-            await apiFetch('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
-          } catch {}
-        }
-      }
+      // Attempt backend logout to clear httpOnly cookies if any
+      await apiFetchWithAuth('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } }, token || undefined).catch(() => null);
     } catch {}
-    localStorage.removeItem('auth');
-    window.dispatchEvent(new Event('auth:changed'));
+    logout();
     router.replace('/login');
   }
 
   return (
     <div className={styles.userMenu}>
       <div className={styles.userName}><span className={styles.userLabel}>Pseudo&nbsp;:</span> {name}</div>
-      <button className={`btn btn-secondary ${styles.logoutButton}`} onClick={logout} title="Se déconnecter">Se déconnecter</button>
+      <button type="button" className={`btn btn-secondary ${styles.logoutButton}`} onClick={doLogout} title="Se déconnecter">Se déconnecter</button>
     </div>
   );
 }

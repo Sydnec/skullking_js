@@ -1,111 +1,61 @@
 'use client'
 
-import React, { useEffect, useState } from 'react';
-import { apiFetch } from '../../lib/api';
+import React from 'react';
+import { apiFetchWithAuth } from '../../lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import styles from './RoomList.module.css';
 import Tooltip from './Tooltip';
-import { io as ioClient, Socket } from 'socket.io-client';
+import { useAuth } from '../../lib/useAuth';
+import { useSocket } from '../../lib/useSocket';
+import { Room } from '../../lib/types';
 
 export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) {
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { data: rooms = [] as Room[], isLoading: loading, isError, error } = useQuery<Room[], Error>(['rooms'], async () => {
+    const res = await apiFetchWithAuth('/rooms', undefined, undefined);
+    if (!res.ok) throw new Error('Erreur fetch rooms');
+    const d = await res.json();
+    return d || [];
+  }, { refetchOnWindowFocus: false });
 
-  useEffect(() => {
-    // lire l'utilisateur courant (forme normalisée stockée dans localStorage)
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem('auth') : null;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const id = parsed?.user?.id || parsed?.id || parsed?.userId || parsed?.sub || null;
-        setUserId(id || null);
-      }
-    } catch {
-      setUserId(null);
-    }
+  const { user } = useAuth();
+  const userId = user?.id || null;
 
-    // fetch initial rooms
-    fetchRooms();
-
-    // Init socket connection to listen for room updates
-    let socket: Socket | null = null;
-    try {
-      const url = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-      socket = ioClient(url);
-
-      socket.on('connect', () => {
-        // socket connected
-      });
-
-      socket.on('room-created', () => {
-        fetchRooms();
-      });
-
-      socket.on('room-list-updated', () => {
-        fetchRooms();
-      });
-
-      socket.on('player-joined', () => {
-        fetchRooms();
-      });
-    } catch (socketErr) {
-      // ignore socket errors silently
-    }
-
-    return () => {
-      if (socket) {
-        socket.off('room-created');
-        socket.off('room-list-updated');
-        socket.off('player-joined');
-        try { socket.disconnect(); } catch { /* ignore */ }
-      }
-    };
-  }, []);
-
-  async function fetchRooms() {
-    setLoading(true);
-    setErr(null);
-    try {
-      const res = await apiFetch('/rooms');
-      if (!res.ok) throw new Error('Erreur fetch rooms');
-      const data = await res.json();
-      setRooms(data || []);
-    } catch (e: any) {
-      setErr(String(e?.message || e));
-    } finally {
-      setLoading(false);
-    }
-  }
+  // socket: invalidate rooms query on relevant events
+  useSocket(undefined, {
+    'room-created': () => queryClient.invalidateQueries(['rooms']),
+    'room-list-updated': () => queryClient.invalidateQueries(['rooms']),
+    'player-joined': () => queryClient.invalidateQueries(['rooms']),
+  });
 
   if (loading) return <div className={styles.container}>Chargement des tables…</div>;
-  if (err) return <div className={styles.container}>Erreur: {err}</div>;
+  if (isError) return <div className={styles.container}>Erreur: {String((error as Error)?.message || error)}</div>;
   if (!rooms.length) return <div className={styles.container}>Aucune table trouvée</div>;
 
-  function isMemberOf(r: any) {
+  function isMemberOf(r: Room) {
     // considère propriétaire ou joueur listé comme membre
-    const ownerId = r?.owner?.id || r?.ownerId || r?.ownerName || null;
+    const ownerId = r?.owner?.id || r?.ownerId || null;
     if (userId && (ownerId === userId)) return true;
     const players = r.players || [];
     if (userId && players.some((p: any) => p.user?.id === userId || p.userId === userId || p.id === userId)) return true;
     return false;
   }
 
-  const myTables = rooms.filter(r => isMemberOf(r));
-  const publicTables = rooms.filter(r => !isMemberOf(r));
+  const myTables = (rooms || []).filter((r: Room) => isMemberOf(r));
+  const publicTables = (rooms || []).filter((r: Room) => !isMemberOf(r));
 
-  function handleJoin(r: any) {
+  function handleJoin(r: Room) {
     if (onJoin) onJoin(r.code);
   }
 
-  function handleObserve(r: any) {
+  function handleObserve(r: Room) {
     // pass a query suffix so the caller can navigate in observe mode
     if (onJoin) onJoin(r.code + '?mode=observe');
   }
 
   // Start control removed from RoomList — moved into individual room view
 
-  function statusLabel(r: any) {
+  function statusLabel(r: Room) {
     if (r.status === 'RUNNING') return 'Partie en cours';
     if (r.status === 'FINISHED') return 'Partie terminée';
     const playersCount = (r.players?.length || 0);
@@ -114,7 +64,7 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
     return 'Disponible';
   }
 
-  function renderList(items: any[]) {
+  function renderList(items: Room[]) {
     if (!items.length) return <div className={styles.container}>Aucune table</div>;
     return (
       <ul className={styles.list}>
@@ -126,7 +76,7 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
           if (r.status === 'RUNNING') pillClass = styles.red;
           else if (playersCount >= maxPlayers) pillClass = styles.orange;
 
-          const ownerName = r?.owner?.name || r?.ownerName || r?.owner?.username || (r?.ownerId ? 'Utilisateur' : '—');
+          const ownerName = r?.owner?.name || (r?.ownerId ? 'Utilisateur' : '—');
 
           return (
             <li key={r.id} className={styles.item}>
@@ -177,8 +127,8 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
               </div>
 
               <div className={styles.right}>
-                <button className="btn btn-primary" onClick={() => handleJoin(r)}>Rejoindre</button>
-                <button className="btn btn-secondary" onClick={() => handleObserve(r)}>Observer</button>
+                <button type="button" className="btn btn-primary" onClick={() => handleJoin(r)}>Rejoindre</button>
+                <button type="button" className="btn btn-secondary" onClick={() => handleObserve(r)}>Observer</button>
                 {/* Start button removed from list view; control moved into room page */}
               </div>
             </li>

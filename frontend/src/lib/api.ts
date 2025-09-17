@@ -39,5 +39,26 @@ export function buildApiUrl(path: string): string {
  */
 export function apiFetch(path: string, options?: RequestInit): Promise<Response> {
   const url = buildApiUrl(path);
-  return fetch(url, options);
+  const defaultOpts: RequestInit = { credentials: 'include' };
+  // Merge headers carefully to avoid mutating caller object
+  const merged: RequestInit = { ...defaultOpts, ...(options || {}) };
+  if (options?.headers) {
+    merged.headers = { ...(options.headers as Record<string, any>) };
+  }
+  // Allow callers to still send Authorization header when token-based auth is used,
+  // but prefer cookies (HttpOnly) when backend sets them. credentials: 'include' ensures cookies are sent.
+  return fetch(url, merged);
+}
+
+/**
+ * Wrapper pour fetch avec token d'authentification Bearer
+ * @param path - Le chemin de l'API (ex: '/auth/login')
+ * @param options - Options de fetch
+ * @param token - Token d'authentification (optionnel)
+ * @returns Promise de Response
+ */
+export function apiFetchWithAuth(path: string, options?: RequestInit, token?: string | undefined): Promise<Response> {
+  const headers = { ...(options?.headers as Record<string, any> || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return apiFetch(path, { ...options, headers });
 }

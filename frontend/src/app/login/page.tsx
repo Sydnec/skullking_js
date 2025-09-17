@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '../../lib/api';
+import { apiFetchWithAuth } from '../../lib/api';
+import { useAuth } from '../../lib/useAuth';
 import styles from './page.module.css';
 
 export default function LoginPage() {
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [msg, setMsg] = useState('');
   const router = useRouter();
+  const { loginFromPayload } = useAuth();
 
   function normalizeAuthPayload(data: any) {
     // backend may return different shapes; normalize to { user: {id,name}, token, refreshToken }
@@ -60,10 +62,8 @@ export default function LoginPage() {
     const data = await res.json().catch(() => ({}));
     const norm = normalizeAuthPayload(data);
     if (norm.token) {
-      // always store normalized shape
-      localStorage.setItem('auth', JSON.stringify(norm));
-      try { window.dispatchEvent(new Event('auth:changed')); } catch (_) {}
-      // if there's a redirect destination saved before login, use it
+      // use AuthContext to centralize storage/dispatch
+      try { loginFromPayload(norm); } catch { /* fallback below */ }
       try {
         const dest = localStorage.getItem('afterLoginRedirect');
         if (dest) {
@@ -71,7 +71,7 @@ export default function LoginPage() {
           router.push(dest);
           return true;
         }
-      } catch {}
+      } catch { }
       router.push('/');
       return true;
     }
@@ -82,7 +82,20 @@ export default function LoginPage() {
   async function login() {
     setMsg('');
     try {
-      const res = await apiFetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
+      const res = await apiFetchWithAuth('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
+      // On successful login
+      if (res.ok) {
+        const payload = await res.json().catch(() => null);
+        if (payload) {
+          // use centralized auth to store normalized payload
+          try { loginFromPayload(payload); } catch { /* fallback: ignore */ }
+        }
+
+        const dest = typeof window !== 'undefined' ? localStorage.getItem('afterLoginRedirect') : null;
+        try { if (dest) { localStorage.removeItem('afterLoginRedirect'); } } catch {}
+        router.replace(dest || '/');
+        return;
+      }
       await handleAuthResponse(res);
     } catch (e: any) {
       setMsg(formatErrorMessage(e));
@@ -92,7 +105,7 @@ export default function LoginPage() {
   async function register() {
     setMsg('');
     try {
-      const res = await apiFetch('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
+      const res = await apiFetchWithAuth('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
       await handleAuthResponse(res);
     } catch (e: any) {
       setMsg(formatErrorMessage(e));

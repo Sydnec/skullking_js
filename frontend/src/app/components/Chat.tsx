@@ -2,8 +2,11 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import styles from './Chat.module.css';
-import { io } from 'socket.io-client';
-import { apiFetch } from '../../lib/api';
+import { apiFetchWithAuth } from '../../lib/api';
+import { useAuth } from '../../lib/useAuth';
+import { useSocket } from '../../lib/useSocket';
+import { Message as MessageType } from '../../lib/types';
+import { logDev } from '../../lib/logger';
 
 type Message = { id: string; userId: string; userName: string; text: string; createdAt: string };
 
@@ -12,7 +15,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
   const [open, setOpen] = useState<boolean>(() => {
     try {
       const key = `chat_open_${roomCode || 'global'}`;
-      const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null; // kept for backward compatibility, persisted per-user preference
       return raw === '1' || raw === 'true';
     } catch {
       return false;
@@ -20,9 +23,10 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
   });
   const openRef = React.useRef<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<MessageType[]>([]);
   const [text, setText] = useState('');
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { user, token } = useAuth();
+  const currentUserId = user?.id || null;
   const listRef = useRef<HTMLDivElement | null>(null);
 
   // helper to normalize messages so both socket and send() can use it
@@ -47,81 +51,42 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
   }, [open, roomCode]);
 
   useEffect(()=>{
-    // determine current user id from stored auth
-    try {
-      const raw = localStorage.getItem('auth');
-      if (raw) {
-        const parsed = JSON.parse(raw || '{}');
-        const uid = parsed?.user?.id || parsed?.id || parsed?.userId || null;
-        setCurrentUserId(uid || null);
-      }
-    } catch(e){}
+    // user comes from AuthContext
 
     // placeholder: fetch recent messages for room
     async function load() {
       if (!roomCode) return;
       try {
-        const res = await apiFetch(`/messages/room/${roomCode}`);
+        const res = await apiFetchWithAuth(`/messages/room/${roomCode}`, undefined, token || undefined);
         if (res.ok) {
           const arr = await res.json();
           // normalize messages
           setMessages((arr || []).map((m: any) => ({ id: m.id, userId: m.userId || m.user?.id, userName: m.userName || m.user?.name || m.user?.userName || 'Utilisateur', text: m.content || m.text || '', createdAt: m.createdAt || new Date().toISOString() })));
         }
-      } catch(e){}
+      } catch(e:any){ logDev('chat load failed', e); }
     }
     load();
-  },[roomCode]);
+  },[roomCode, user?.id, token]);
 
-  // WebSocket: subscribe to chat events for this room
-  useEffect(() => {
-    if (!roomCode) return;
-    const url = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-    // Normal Socket.IO initialization (allow upgrades)
-    const socket = io(url);
-
-    socket.on('connect', () => {
+  // useSocket for real-time messages
+  useSocket({ code: roomCode, userId: currentUserId }, {
+    'message-created': (payload:any) => {
       try {
-        const raw = localStorage.getItem('auth');
-        const uid = raw ? (JSON.parse(raw || '{}')?.user?.id || JSON.parse(raw || '{}')?.id || null) : null;
-        socket.emit('join-room', { code: roomCode, userId: uid });
-        // connected
-      } catch {
-        // ignore
-      }
-    });
-
-    // legacy 'chat-message' handling removed — rely on 'message-created' emitted by server
-
-    socket.on('message-created', (payload: any) => {
-      // incoming payload
-      // payload may be { message } or raw message depending on emitter
-      const m = payload?.message || payload;
-      try {
-        setMessages((prev) => {
-          const nm = mapMessage(m);
-          if (!nm.id) return prev;
-          // If we already have the canonical server id, do nothing
-          if (prev.some((it) => it.id === nm.id)) return prev;
-          // If an optimistic local message exists with same text and userId, replace it
-          const optIdx = prev.findIndex((it) => String(it.id).startsWith('local_') && it.text === nm.text && it.userId === nm.userId);
-          if (optIdx !== -1) {
-            const copy = [...prev];
-            copy[optIdx] = nm;
-            return copy;
-          }
-          // if chat is currently collapsed, mark unread
-          if (!openRef.current) setHasUnread(true);
+        const nm = {
+          id: payload.id || String(Date.now()),
+          userId: payload.userId || payload.user?.id || null,
+          userName: payload.userName || payload.user?.name || 'Utilisateur',
+          text: payload.content || payload.text || '',
+          createdAt: payload.createdAt || new Date().toISOString(),
+        };
+        setMessages(prev => {
+          if (prev.some(it => it.id === nm.id)) return prev;
+          if (!open) setHasUnread(true);
           return [...prev, nm];
         });
-      } catch {}
-    });
-
-    // keep default socket.io reconnect handling; no verbose logging here
-
-    return () => {
-      try { socket.disconnect(); } catch {}
-    };
-  }, [roomCode]);
+      } catch (e:any) { logDev('socket message handler error', e); }
+    }
+  });
 
   // scroll automatiquement vers le bas quand des messages arrivent **si** le chat est ouvert
   useEffect(() => {
@@ -150,10 +115,8 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
   async function send() {
     if (!text.trim() || !roomCode) return;
     try {
-      const rawAuth = localStorage.getItem('auth');
-      const parsedAuth = rawAuth ? JSON.parse(rawAuth || '{}') : {};
-      const uid = parsedAuth?.user?.id || parsedAuth?.id || parsedAuth?.userId || null;
-      const uname = parsedAuth?.user?.name || parsedAuth?.username || parsedAuth?.userName || parsedAuth?.name || 'Vous';
+      const uid = currentUserId || 'local';
+      const uname = user?.name || user?.username || 'Vous';
 
       // optimistic local message so sender sees it immediately
       const localMsg: Message = {
@@ -165,13 +128,11 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
       };
       setMessages(prev => [...prev, localMsg]);
 
-      const raw = localStorage.getItem('auth');
-      const token = raw ? (JSON.parse(raw)?.token || null) : null;
       const body = { roomCode, content: text };
       // clear input immediately
       setText('');
 
-      const res = await apiFetch(`/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify(body) });
+      const res = await apiFetchWithAuth(`/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, token || undefined);
       if (!res.ok) return;
 
       // Try to append/replace with canonical message returned by API
@@ -195,7 +156,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
           });
         }
       }
-    } catch {}
+    } catch(e:any){ logDev('chat send failed', e); }
   }
 
   // submit on Enter
@@ -253,8 +214,8 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
               })}
             </div>
             <div className={styles.chatInputRow}>
-              <input className={styles.chatInput} value={text} onChange={(e)=>setText(e.target.value)} onKeyDown={onInputKeyDown} placeholder="Message..." />
-              <button className="btn btn-primary" onClick={send}>Envoyer</button>
+              <input className={styles.chatInput} value={text} onChange={(e)=>setText(e.target.value)} onKeyDown={onInputKeyDown} placeholder="Message..." aria-label="Message" />
+              <button type="button" className="btn btn-primary" onClick={send}>Envoyer</button>
             </div>
           </div>
         )}

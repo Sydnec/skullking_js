@@ -2,56 +2,42 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '../lib/api';
+import { apiFetchWithAuth } from '../lib/api';
+import { useAuth } from '../lib/useAuth';
 import RoomList from './components/RoomList';
 import styles from './page.module.css';
 
 export default function HomePage() {
   const router = useRouter();
+  const { user, token } = useAuth();
   const [ready, setReady] = useState(false);
   const [code, setCode] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
 
   useEffect(() => {
-    const raw = localStorage.getItem('auth');
-    if (!raw) {
-      router.replace('/login');
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      if (!parsed || !parsed.token) {
-        router.replace('/login');
-        return;
-      }
-    } catch {
+    if (!user) {
       router.replace('/login');
       return;
     }
     setReady(true);
-  }, [router]);
+  }, [router, user]);
 
   if (!ready) return <div>Redirection...</div>;
 
   async function createRoom() {
     try {
-      const raw = localStorage.getItem('auth');
-      if (!raw) { router.replace('/login'); return; }
-      const parsed = JSON.parse(raw);
-      const ownerId = parsed?.user?.id || parsed?.id || parsed?.userId || null;
+      const ownerId = user?.id || null;
       if (!ownerId) { alert('Utilisateur non identifié'); return; }
 
       const genCode = Math.random().toString(36).substring(2, 7).toUpperCase();
       const payload = { code: genCode, maxPlayers: 8, settings: {}, status: 'LOBBY' };
-      const token = parsed?.token || null;
-      const res = await apiFetch('/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
+      const res = await apiFetchWithAuth('/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, token || undefined);
       if (!res.ok) {
         const txt = await res.text();
         alert('Erreur création table: ' + txt);
         return;
       }
       const room = await res.json();
-      // navigate to the public room code (e.g. /W3I0L) instead of internal UUID
       router.push(`/${room.code}`);
     } catch (e: any) {
       alert(String(e?.message || e));
@@ -63,17 +49,15 @@ export default function HomePage() {
     const trim = (input || '').trim();
     if (!trim) return;
     try {
-      const res = await apiFetch('/rooms');
+      const res = await apiFetchWithAuth('/rooms', undefined, token || undefined);
       if (!res.ok) { setJoinError('Erreur serveur lors de la vérification'); return; }
       const rooms = await res.json();
       const found = rooms.find((r: any) => r.id === trim || (r.code && String(r.code).toLowerCase() === trim.toLowerCase()));
       if (!found) {
-        // salle introuvable -> rediriger vers l'accueil
         try { router.replace('/'); } catch { /* ignore */ }
         return;
       }
 
-      // If room is already full, refuse join (same behavior as room page auto-join)
       const playersCount = (found.players?.length || 0);
       const maxPlayers = found.maxPlayers || 0;
       if (maxPlayers > 0 && playersCount >= maxPlayers) {
@@ -81,20 +65,10 @@ export default function HomePage() {
         return;
       }
 
-      // Attempt to join via API
       try {
-        const raw = localStorage.getItem('auth');
-        if (!raw) { setJoinError('Utilisateur non identifié'); return; }
-        const parsed = JSON.parse(raw);
-        const userId = parsed?.user?.id || parsed?.id || parsed?.userId || null;
-        const token = parsed?.token || null;
-        if (!userId) { setJoinError('Utilisateur non identifié'); return; }
+        if (!user) { setJoinError('Utilisateur non identifié'); return; }
 
-        const joinRes = await apiFetch(`/rooms/${found.code}/join`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({})
-        });
+        const joinRes = await apiFetchWithAuth(`/rooms/${found.code}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }, token || undefined);
 
         if (!joinRes.ok) {
           const jErr = await joinRes.json().catch(() => ({ error: 'Impossible de rejoindre la table' }));
@@ -102,7 +76,6 @@ export default function HomePage() {
           return;
         }
 
-        // Success — navigate to room page using its public code
         router.push(`/${found.code}`);
       } catch (joinErr: any) {
         setJoinError(String(joinErr?.message || joinErr));
@@ -122,14 +95,14 @@ export default function HomePage() {
       <div className="card">
         <div className={styles.cardRow}>
           <div className={`${styles.formRowInline} ${styles.actionsContainer}`}>
-            <button className={`btn btn-primary ${styles.createButton}`} onClick={createRoom}>Créer une table</button>
+            <button type="button" className={`btn btn-primary ${styles.createButton}`} onClick={createRoom}>Créer une table</button>
 
             <div className={styles.actionsGroup}>
               <div className={styles.inputWrapper}>
                 <input className="input" placeholder="Code de la table" value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => e.key === 'Enter' && joinCode()} />
                 {joinError && (<div className={styles.inputError}>{joinError}</div>)}
               </div>
-              <button className={`btn btn-secondary ${styles.joinButton}`} onClick={() => joinCode()}>Rejoindre une table</button>
+              <button type="button" className={`btn btn-secondary ${styles.joinButton}`} onClick={() => joinCode()}>Rejoindre une table</button>
             </div>
           </div>
         </div>

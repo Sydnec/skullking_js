@@ -1,6 +1,7 @@
 "use client"
 
 import React from 'react';
+import Image from 'next/image';
 import styles from './ThemeToggle.module.css';
 
 export default function ThemeToggle({ theme, setTheme }: { theme: 'angel'|'demon', setTheme: React.Dispatch<React.SetStateAction<'angel'|'demon'>> }) {
@@ -20,7 +21,7 @@ export default function ThemeToggle({ theme, setTheme }: { theme: 'angel'|'demon
     >
       <div className={styles.toggleTrack} aria-hidden>
         <div className={styles.toggleKnob}>
-          <img src={theme === 'angel' ? '/angel.png' : '/devil.png'} alt="" className={styles.toggleIcon} />
+          <Image src={theme === 'angel' ? '/angel.png' : '/devil.png'} alt="" width={24} height={24} className={styles.toggleIcon} />
         </div>
       </div>
     </button>

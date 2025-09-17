@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from 'react';
+import { logDev } from '../../lib/logger';
 import styles from '../layout.module.css';
 import UserMenu from './UserMenu';
 import ThemeToggle from './ThemeToggle';
@@ -14,7 +15,7 @@ export default function Header() {
   // After mount, read actual preference (localStorage or prefers-color-scheme)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem('theme');
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
     if (saved === 'angel' || saved === 'demon') {
       setTheme(saved as 'angel'|'demon');
       return;
@@ -29,7 +30,7 @@ export default function Header() {
     const prevBg = getComputedStyle(document.body).getPropertyValue('--bg') || '';
     try {
       document.documentElement.style.setProperty('--overlay-bg', prevBg.trim() || 'transparent');
-    } catch (e) {}
+    } catch (err) { logDev('header applyTheme error', err); }
 
     // show overlay (with previous color)
     setOverlayFading(false);
@@ -40,7 +41,7 @@ export default function Header() {
       document.body.classList.remove('theme-angel', 'theme-demon');
       if (theme === 'angel') document.body.classList.add('theme-angel');
       else document.body.classList.add('theme-demon');
-      try { localStorage.setItem('theme', theme); } catch (e) {}
+      try { localStorage.setItem('theme', theme); } catch (err) { logDev('localStorage set theme failed', err); }
 
       // start fade out of overlay after a short pause
       const fadeTimer = setTimeout(() => setOverlayFading(true), 40);
@@ -49,7 +50,7 @@ export default function Header() {
       const removeTimer = setTimeout(() => {
         setOverlayVisible(false);
         setOverlayFading(false);
-        try { document.documentElement.style.removeProperty('--overlay-bg'); } catch (e) {}
+        try { document.documentElement.style.removeProperty('--overlay-bg'); } catch (err) { logDev('remove overlay-bg failed', err); }
       }, 440); // 40 + 360 transition
 
       // cleanup fade/remove timers when effect re-runs
