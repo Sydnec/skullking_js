@@ -7,7 +7,7 @@
 
 .headerCard {
   background: var(--card);
-  padding: 18px;
+  padding: 4px 18px;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -23,10 +23,15 @@
 
 .codeBox {
   background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-  padding: 10px 14px;
+  padding: 8px 10px; /* réduit padding pour matcher la hauteur du bouton */
   border-radius: 8px;
   font-weight: 800;
-  font-size: 20px;
+  font-size: 14px; /* réduit la taille du texte du code */
+  height: 36px; /* fixe la hauteur pour aligner avec les boutons */
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border);
   cursor: pointer;
 }
@@ -44,7 +49,7 @@
 
 .card {
   background: var(--card);
-  padding: 14px;
+  padding: 0px 14px;
   border-radius: 8px;
 }
 
@@ -52,7 +57,7 @@
 .playersGrid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px; /* réduit l'espacement vertical entre joueurs */
   align-items: start;
   /* vertical scroll on desktop */
   overflow-y: auto;
@@ -61,16 +66,16 @@
 
 .playerCard {
   display: flex;
-  gap: 10px;
+  gap: 8px; /* réduit l'espace horizontal entre avatar et contenu */
   align-items: center;
-  padding: 10px;
+  padding: 8px; /* padding réduit */
   border-radius: 8px;
   border: 1px solid var(--border);
 }
 
 .avatar {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   display: grid;
   place-items: center;
@@ -80,9 +85,9 @@
 }
 
 .ownerBadge {
-  font-size: 11px;
+  font-size: 10px;
   background: rgba(0,0,0,0.06);
-  padding: 4px 6px;
+  padding: 3px 5px;
   border-radius: 6px;
   margin-left: 8px;
 }
@@ -154,14 +159,14 @@
 .switch input:checked + .slider { background: var(--accent, linear-gradient(90deg,#10b981,#059669)); }
 .switch input:checked + .slider:before { transform: translateX(20px); }
 
-.headerTitle { font-weight: 800; }
+.headerTitle { font-weight: 800; font-size: 22px; }
 .headerRight { display: flex; gap: 8px; align-items: center; }
 
 .sectionSpacing { margin-top: 10px; }
 .cardSpacing { margin-top: 12px; }
 
-.playerInner { display: flex; align-items: center; gap: 8px; }
-.playerName { font-weight: 600; }
+.playerInner { display: flex; align-items: center; gap: 6px; }
+.playerName { font-weight: 600; font-size: 14px; }
 
 .presenceDot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
 .presenceDot.present { background: #22c55e; }
@@ -181,6 +186,73 @@
 }
 .kickBtn:hover { background: var(--border); color: var(--accent); }
 
+/* Styles pour la vue salle d'attente simplifiée */
+.lobbyContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px;
+}
+
+.lobbyCard {
+  width: 100%;
+  max-width: 900px;
+  background: var(--card);
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(10,10,10,0.06);
+}
+
+.lobbyPlayersSection {
+  margin-top: 12px;
+}
+
+.lobbyActions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Single column layout */
+.singleColumnContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px;
+}
+
+.mainCard {
+  width: 100%;
+  max-width: 900px;
+  background: var(--card);
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(10,10,10,0.06);
+}
+
+.playersAndSettings {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.playersColumn {
+  display: block;
+}
+
+.settingsColumn {
+  width: 100%;
+  max-width: 320px;
+}
+
+.settingsControls {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 @media (max-width: 900px) {
   .container { grid-template-columns: 1fr; padding: 12px; }
   /* On small screens (mobile), display players horizontally with horizontal scroll */
@@ -197,4 +269,12 @@
   .actions { justify-content: space-between; }
   .startBtn { width: 48%; }
   .btn-secondary { width: 48%; }
+  .lobbyCard { padding: 14px; }
+  .mainCard { padding: 14px; }
+  .playersAndSettings { grid-template-columns: 1fr; }
+  .settingsColumn { max-width: none; }
+  .settingsControls { justify-content: space-between; }
+  .avatar { width: 32px; height: 32px; }
+  .playerCard { padding: 6px; }
+  .playerName { font-size: 13px; }
 }

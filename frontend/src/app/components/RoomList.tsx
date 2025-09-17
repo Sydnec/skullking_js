@@ -8,14 +8,14 @@ import Tooltip from './Tooltip';
 import { useAuth } from '../../lib/useAuth';
 import { useSocket } from '../../lib/useSocket';
 import { Room } from '../../lib/types';
+import { roomsArraySchema } from '../../lib/schemas';
 
 export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) {
   const queryClient = useQueryClient();
   const { data: rooms = [] as Room[], isLoading: loading, isError, error } = useQuery<Room[], Error>(['rooms'], async () => {
-    const res = await apiFetchWithAuth('/rooms', undefined, undefined);
-    if (!res.ok) throw new Error('Erreur fetch rooms');
-    const d = await res.json();
-    return d || [];
+    // Utilise le schéma pour valider la réponse et retourner directement le tableau.
+    const fetched = await apiFetchWithAuth('/rooms', undefined, undefined, roomsArraySchema);
+    return fetched || [];
   }, { refetchOnWindowFocus: false });
 
   const { user } = useAuth();

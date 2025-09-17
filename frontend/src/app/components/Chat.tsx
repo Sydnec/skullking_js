@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/useAuth';
 import { useSocket } from '../../lib/useSocket';
 import { Message as MessageType } from '../../lib/types';
 import { logDev } from '../../lib/logger';
+import { messagesArraySchema, messageSchema } from '../../lib/schemas';
 
 type Message = { id: string; userId: string; userName: string; text: string; createdAt: string };
 
@@ -32,7 +33,7 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
   // helper to normalize messages so both socket and send() can use it
   const mapMessage = (m: any): Message => ({
     id: m.id || String(Date.now()),
-    userId: m.userId || m.user?.id,
+    userId: m.userId || m.user?.id || null,
     userName: m.userName || m.user?.name || m.user?.userName || 'Utilisateur',
     text: m.content || m.text || '',
     createdAt: m.createdAt || new Date().toISOString(),
@@ -53,15 +54,13 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
   useEffect(()=>{
     // user comes from AuthContext
 
-    // placeholder: fetch recent messages for room
+    // fetch recent messages for room and validate using Zod
     async function load() {
       if (!roomCode) return;
       try {
-        const res = await apiFetchWithAuth(`/messages/room/${roomCode}`, undefined, token || undefined);
-        if (res.ok) {
-          const arr = await res.json();
-          // normalize messages
-          setMessages((arr || []).map((m: any) => ({ id: m.id, userId: m.userId || m.user?.id, userName: m.userName || m.user?.name || m.user?.userName || 'Utilisateur', text: m.content || m.text || '', createdAt: m.createdAt || new Date().toISOString() })));
+        const arr = await apiFetchWithAuth(`/messages/room/${roomCode}`, undefined, token || undefined, messagesArraySchema).catch((e:any)=>{ throw e; });
+        if (Array.isArray(arr)) {
+          setMessages((arr || []).map((m: any) => ({ id: m.id, userId: m.userId || m.user?.id || null, userName: m.userName || m.user?.name || m.user?.userName || 'Utilisateur', text: m.content || m.text || '', createdAt: m.createdAt || new Date().toISOString() })));
         }
       } catch(e:any){ logDev('chat load failed', e); }
     }
@@ -81,7 +80,8 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
         };
         setMessages(prev => {
           if (prev.some(it => it.id === nm.id)) return prev;
-          if (!open) setHasUnread(true);
+          // use openRef.current (mutable ref) to avoid stale closure
+          if (!openRef.current) setHasUnread(true);
           return [...prev, nm];
         });
       } catch (e:any) { logDev('socket message handler error', e); }
@@ -132,31 +132,53 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
       // clear input immediately
       setText('');
 
-      const res = await apiFetchWithAuth(`/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, token || undefined);
-      if (!res.ok) return;
+      // call API and attempt to validate/parse returned message
+      const created = await apiFetchWithAuth(`/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, token || undefined).catch((e:any)=>{ throw e; });
 
-      // Try to append/replace with canonical message returned by API
-      const created = await res.json().catch(() => null);
-      if (created) {
-        const payload = (created && (created.message || created)) || null;
-        if (payload) {
+      const payload = (created && (created.message || created)) || null;
+      if (payload) {
+        // helper to apply server-provided message while deduplicating possible socket-delivered copy
+        const applyServerMessage = (nm: any) => {
           setMessages(prev => {
-            const nm = mapMessage(payload);
-            if (!nm.id) return prev;
-            // if server id already present, keep existing
-            if (prev.some(it => it.id === nm.id)) return prev;
-            // try to find optimistic message and replace it
-            const idx = prev.findIndex(it => String(it.id).startsWith('local_') && it.text === nm.text && it.userId === nm.userId);
-            if (idx !== -1) {
-              const copy = [...prev];
-              copy[idx] = nm;
-              return copy;
+            // if server id already present => remove any matching local placeholder(s)
+            const serverExistsIndex = prev.findIndex(it => it.id === nm.id);
+            const localIndex = prev.findIndex(it => String(it.id).startsWith('local_') && it.text === nm.text && (nm.userId ? it.userId === nm.userId : true));
+
+            if (serverExistsIndex !== -1) {
+              // ensure no leftover local msg
+              if (localIndex !== -1) {
+                const copy = prev.slice();
+                // remove the local placeholder
+                copy.splice(localIndex, 1);
+                return copy;
+              }
+              return prev; // already present
             }
+
+            if (localIndex !== -1) {
+              // replace local placeholder with server message
+              const copy = prev.slice();
+              copy[localIndex] = nm;
+              // also remove any other items with same id (safety)
+              return copy.filter((it, i) => i === localIndex || it.id !== nm.id);
+            }
+
+            // otherwise just append
             return [...prev, nm];
           });
+        };
+
+        try {
+          const valid = messageSchema.parse(payload);
+          const nm = mapMessage(valid);
+          applyServerMessage(nm);
+        } catch {
+          // validation failed: fallback to mapping raw payload
+          const nm = mapMessage(payload);
+          applyServerMessage(nm);
         }
       }
-    } catch(e:any){ logDev('chat send failed', e); }
+    } catch { logDev('chat send failed'); }
   }
 
   // submit on Enter

@@ -133,9 +133,9 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
     const room = await prisma.room.findUnique({ where: { code } });
     if (!room) return res.status(404).json({ error: 'Room not found' });
 
-    // if already joined, return existing
+    // if already joined, return existing wrapped in { player }
     const existing = await prisma.roomPlayer.findFirst({ where: { roomId: room.id, userId } });
-    if (existing) return res.status(200).json(existing);
+    if (existing) return res.status(200).json({ player: existing });
 
     const rp = await prisma.roomPlayer.create({
       data: { roomId: room.id, userId, seat: null },
@@ -148,7 +148,7 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
       io?.emit('room-list-updated');
     } catch (e) { /* ignore socket errors */ }
 
-    res.status(201).json(rp);
+    return res.status(201).json({ player: rp });
   } catch (e) {
     next(e);
   }

@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiFetchWithAuth } from './api';
 import { queryClient } from './queryClient';
+import { roomSchema } from './schemas';
 
 // Hook to fetch room data and provide common mutations. This keeps fetching logic
 // centralized and allows components to use react-query cache / invalidation.
@@ -11,13 +12,19 @@ export function useRoom(code?: string) {
     key,
     async () => {
       if (!code) throw new Error('no-code');
-      const res = await apiFetchWithAuth(`/rooms/${code}`);
-      // Si la room n'existe plus (404), retourner null plutôt que de
-      // lever une erreur : les composants doivent traiter l'absence de
-      // room (par ex. rediriger ou afficher un message) sans polluer la
-      // console avec une exception non gérée.
-      if (res.status === 404) return null;
-      return await res.json();
+      // Demande typée : on veut que la réponse soit validée par roomSchema.
+      // En cas de 404 on souhaite retourner null plutôt que lever une exception.
+      const fetched = await apiFetchWithAuth(`/rooms/${code}`, undefined, undefined, roomSchema, { allowNotOk: true });
+
+      // Si l'API a renvoyé un objet { ok: false, status, data }
+      if (fetched && typeof fetched === 'object' && 'ok' in fetched && fetched.ok === false) {
+        if (fetched.status === 404) return null;
+        const errMsg = (fetched.data && (fetched.data.message || fetched.data.error)) || `fetch-room-failed (${fetched.status})`;
+        throw new Error(String(errMsg));
+      }
+
+      // Sinon fetched est la room déjà parsée par Zod (roomSchema)
+      return fetched;
     },
     {
       enabled: !!code,
@@ -31,9 +38,12 @@ export function useRoom(code?: string) {
     async ({ token }: { token?: string } = {}) => {
       if (!code) throw new Error('no-code');
       const opts: RequestInit = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) };
-      const res = await apiFetchWithAuth(`/rooms/${code}/join`, opts, token);
-      if (!res.ok) throw new Error('join-failed');
-      return await res.json();
+      // allowNotOk pour que l'appel ne throw pas automatiquement sur status non OK
+      const res = await apiFetchWithAuth(`/rooms/${code}/join`, opts, token, undefined, { allowNotOk: true });
+      if (res && typeof res === 'object' && 'ok' in res && res.ok === false) {
+        throw new Error(res.data?.error || res.data?.message || 'join-failed');
+      }
+      return res;
     },
     {
       // optimistic: append a placeholder player locally
@@ -67,9 +77,11 @@ export function useRoom(code?: string) {
     async ({ token }: { token?: string } = {}) => {
       if (!code) throw new Error('no-code');
       const opts: RequestInit = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) };
-      const res = await apiFetchWithAuth(`/rooms/${code}/start`, opts, token);
-      if (!res.ok) throw new Error('start-failed');
-      return await res.json();
+      const res = await apiFetchWithAuth(`/rooms/${code}/start`, opts, token, undefined, { allowNotOk: true });
+      if (res && typeof res === 'object' && 'ok' in res && res.ok === false) {
+        throw new Error(res.data?.error || res.data?.message || 'start-failed');
+      }
+      return res;
     },
     {
       // optimistic: mark room as RUNNING locally
@@ -102,12 +114,13 @@ export function useRoom(code?: string) {
     async ({ body, token }: { body: any; token?: string }) => {
       if (!code) throw new Error('no-code');
       const opts: RequestInit = { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
-      const res = await apiFetchWithAuth(`/rooms/${code}`, opts, token);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || 'update-failed');
+      // On veut la room mise à jour validée par roomSchema. allowNotOk pour récupérer erreur éventuelle.
+      const res = await apiFetchWithAuth(`/rooms/${code}`, opts, token, roomSchema, { allowNotOk: true });
+      if (res && typeof res === 'object' && 'ok' in res && res.ok === false) {
+        const err = res.data || {};
+        throw new Error(err?.error || err?.message || 'update-failed');
       }
-      return await res.json();
+      return res;
     },
     {
       // optimistic: merge body into cached room

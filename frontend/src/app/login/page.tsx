@@ -58,9 +58,9 @@ export default function LoginPage() {
     }
   }
 
-  async function handleAuthResponse(res: Response) {
-    const data = await res.json().catch(() => ({}));
-    const norm = normalizeAuthPayload(data);
+  // Adapted: handle parsed API payload (apiFetchWithAuth returns parsed data or throws)
+  async function handleAuthResponse(data: any) {
+    const norm = normalizeAuthPayload(data || {});
     if (norm.token) {
       // use AuthContext to centralize storage/dispatch
       try { loginFromPayload(norm); } catch { /* fallback below */ }
@@ -75,38 +75,27 @@ export default function LoginPage() {
       router.push('/');
       return true;
     }
-    setMsg(formatErrorMessage(data, res));
+    setMsg(formatErrorMessage(data));
     return false;
   }
 
+  // Adapted login: consume parsed data returned by apiFetchWithAuth
   async function login() {
     setMsg('');
     try {
-      const res = await apiFetchWithAuth('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
-      // On successful login
-      if (res.ok) {
-        const payload = await res.json().catch(() => null);
-        if (payload) {
-          // use centralized auth to store normalized payload
-          try { loginFromPayload(payload); } catch { /* fallback: ignore */ }
-        }
-
-        const dest = typeof window !== 'undefined' ? localStorage.getItem('afterLoginRedirect') : null;
-        try { if (dest) { localStorage.removeItem('afterLoginRedirect'); } } catch {}
-        router.replace(dest || '/');
-        return;
-      }
-      await handleAuthResponse(res);
+      const data = await apiFetchWithAuth('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
+      await handleAuthResponse(data);
     } catch (e: any) {
       setMsg(formatErrorMessage(e));
     }
   }
 
+  // Adapted register: same behaviour as login
   async function register() {
     setMsg('');
     try {
-      const res = await apiFetchWithAuth('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
-      await handleAuthResponse(res);
+      const data = await apiFetchWithAuth('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) });
+      await handleAuthResponse(data);
     } catch (e: any) {
       setMsg(formatErrorMessage(e));
     }

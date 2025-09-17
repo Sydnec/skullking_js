@@ -31,23 +31,65 @@ export function buildApiUrl(path: string): string {
   return `${baseUrl}/api/v1${cleanPath}`;
 }
 
+function getTokenFromLocalStorage(): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    return window.localStorage.getItem('token') || null;
+  } catch {
+    return null;
+  }
+}
+
+type FetchOpts = { allowNotOk?: boolean };
+
 /**
  * Wrapper pour fetch avec l'URL d'API automatiquement construite
  * @param path - Le chemin de l'API (ex: '/auth/login')
  * @param options - Options de fetch
- * @returns Promise de Response
+ * @param schema - Schéma de validation Zod (optionnel)
+ * @param opts - Options supplémentaires (ex: allowNotOk)
+ * @returns Promise de la réponse validée ou objet {ok, status, data} si allowNotOk
  */
-export function apiFetch(path: string, options?: RequestInit): Promise<Response> {
+export async function apiFetch(path: string, options?: RequestInit, schema?: any, opts?: FetchOpts): Promise<any> {
   const url = buildApiUrl(path);
   const defaultOpts: RequestInit = { credentials: 'include' };
-  // Merge headers carefully to avoid mutating caller object
   const merged: RequestInit = { ...defaultOpts, ...(options || {}) };
-  if (options?.headers) {
-    merged.headers = { ...(options.headers as Record<string, any>) };
+  if (options?.headers) merged.headers = { ...(options.headers as Record<string, any>) };
+
+  const res = await fetch(url, merged);
+  const status = res.status;
+  const text = await res.text();
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
   }
-  // Allow callers to still send Authorization header when token-based auth is used,
-  // but prefer cookies (HttpOnly) when backend sets them. credentials: 'include' ensures cookies are sent.
-  return fetch(url, merged);
+
+  if (!res.ok && opts?.allowNotOk) {
+    // return raw data and status for caller to handle
+    let parsed = data;
+    if (schema && typeof schema.parse === 'function') {
+      try { parsed = schema.parse(data); } catch { /* leave parsed as-is */ }
+    }
+    return { ok: false, status, data: parsed };
+  }
+
+  if (!res.ok) {
+    const message = (data && (data.message || data.error)) || text || res.statusText || 'Erreur API';
+    throw new Error(String(message));
+  }
+
+  if (schema && typeof schema.parse === 'function') {
+    try {
+      return schema.parse(data);
+    } catch (e:any) {
+      // throw a clearer error for validation failures
+      throw new Error(`Réponse API invalide pour ${path}: ${e.message || e}`);
+    }
+  }
+
+  return data;
 }
 
 /**
@@ -55,10 +97,13 @@ export function apiFetch(path: string, options?: RequestInit): Promise<Response>
  * @param path - Le chemin de l'API (ex: '/auth/login')
  * @param options - Options de fetch
  * @param token - Token d'authentification (optionnel)
- * @returns Promise de Response
+ * @param schema - Schéma de validation Zod (optionnel)
+ * @param opts - Options supplémentaires (ex: allowNotOk)
+ * @returns Promise de la réponse validée ou objet {ok, status, data} si allowNotOk
  */
-export function apiFetchWithAuth(path: string, options?: RequestInit, token?: string | undefined): Promise<Response> {
+export async function apiFetchWithAuth(path: string, options?: RequestInit, token?: string | undefined, schema?: any, opts?: FetchOpts): Promise<any> {
   const headers = { ...(options?.headers as Record<string, any> || {}) };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return apiFetch(path, { ...options, headers });
+  const t = token || getTokenFromLocalStorage();
+  if (t) headers.Authorization = `Bearer ${t}`;
+  return apiFetch(path, { ...options, headers }, schema, opts);
 }

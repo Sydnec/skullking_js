@@ -5,10 +5,11 @@ import { queryClient } from './queryClient';
 export function useRoomPlayers() {
   const deletePlayer = useMutation(
     async ({ id, token }: { id: string; token?: string }) => {
-      const res = await apiFetchWithAuth(`/roomplayers/${id}`, { method: 'DELETE' }, token || undefined);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || 'delete-player-failed');
+      // Utilise allowNotOk pour récupérer les erreurs de l'API sans throw automatique
+      const res = await apiFetchWithAuth(`/roomplayers/${id}`, { method: 'DELETE' }, token, undefined, { allowNotOk: true });
+      if (res && typeof res === 'object' && 'ok' in res && res.ok === false) {
+        const err = res.data || {};
+        throw new Error(err?.error || err?.message || 'delete-player-failed');
       }
       return true;
     },

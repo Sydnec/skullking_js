@@ -64,7 +64,8 @@ export async function createMessage(req: AuthRequest, res: Response, next: NextF
     try {
       const room = await prisma.room.findUnique({ where: { id: payload.roomId } });
       if (room) {
-        io?.to(room.code).emit('message-created', { message: m });
+        // Emit the message object directly so clients receive expected fields (id, user, userId, content, createdAt)
+        io?.to(room.code).emit('message-created', m);
       }
     } catch (e) { /* ignore */ }
 
@@ -89,7 +90,7 @@ export async function updateMessage(req: AuthRequest, res: Response, next: NextF
     const io = getSocketServer();
     try {
       const room = await prisma.room.findUnique({ where: { id: m.roomId } });
-      if (room) io?.to(room.code).emit('message-updated', { message: m });
+      if (room) io?.to(room.code).emit('message-updated', m);
     } catch (e) { /* ignore */ }
 
     res.json(m);

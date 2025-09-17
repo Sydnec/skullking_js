@@ -160,21 +160,34 @@ export default function RoomPage() {
 
   if (status === 'UNKNOWN') return <div className="card">Table inconnue ou erreur</div>;
 
+  // Vue unique empilée pour tous les statuts : header, joueurs, contrôles, paramètres, chat
   return (
-    <div className={styles.container}>
-      <div>
-        <RoomHeader room={room} status={status} />
-        <PlayersList room={room} userId={userId} onKick={handleKick} />
+    <div className={styles.singleColumnContainer} aria-label={`Salle ${room?.code || ''}`}>
+      <div className={styles.mainCard}>
+        <RoomHeader room={room} status={status} showToast={showToast} />
+
+        <div className={styles.sectionSpacing}>
+          <div className={styles.playersAndSettings}>
+            <div className={styles.playersColumn}>
+              <PlayersList room={room} userId={userId} onKick={handleKick} />
+            </div>
+            <div className={styles.settingsColumn}>
+              <SettingsPanel room={room} userId={userId} onUpdateSetting={async (k,v) => updateSetting(k,v)} onUpdateMax={async (n) => updateMaxPlayers(n)} />
+
+              {/* Controls placed just below settings */}
+              <div className={styles.settingsControls}>
+                <Controls status={status} room={room} userId={userId} onStart={handleStart} onLeaveOrDelete={handleLeaveOrDelete} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Controls moved into settings column; no separate controls block here */}
       </div>
 
-      <div className={styles.rightColumn}>
-        <Controls status={status} room={room} userId={userId} onStart={handleStart} onLeaveOrDelete={handleLeaveOrDelete} />
-        <SettingsPanel room={room} userId={userId} onUpdateSetting={async (k,v) => updateSetting(k,v)} onUpdateMax={async (n) => updateMaxPlayers(n)} />
+      <div style={{ width: '100%', maxWidth: 900, marginTop: 18 }}>
+        <Chat roomCode={room?.code} visible={!!userId && (room?.players || []).some((p: any) => p.user?.id === userId)} />
       </div>
-
-      <Chat roomCode={room?.code} visible={!!userId && (room?.players || []).some((p: any) => p.user?.id === userId)} />
-
-      {/* Toast UI provided by ToastProvider */}
     </div>
   );
 }
