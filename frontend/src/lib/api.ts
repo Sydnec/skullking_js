@@ -8,7 +8,7 @@ function getApiBaseUrl(): string {
   // Côté client, utiliser la variable d'environnement
   if (typeof window !== 'undefined') {
     return process.env.NEXT_PUBLIC_API_URL || 
-           (process.env.NODE_ENV === 'production' ? 'https://skullking-api.duckdns.org' : 'http://localhost:3001');
+           (process.env.NODE_ENV === 'production' ? 'https://sk-api.simonbourlier.fr' : 'http://localhost:3001');
   }
   
   // Côté serveur (SSR), utiliser localhost en développement
@@ -17,7 +17,7 @@ function getApiBaseUrl(): string {
   }
   
   // En production côté serveur, utiliser la variable d'environnement ou fallback
-  return process.env.NEXT_PUBLIC_API_URL || 'https://skullking-api.duckdns.org';
+  return process.env.NEXT_PUBLIC_API_URL || 'https://sk-api.simonbourlier.fr';
 }
 
 /**

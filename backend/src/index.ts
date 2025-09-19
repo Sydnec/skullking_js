@@ -14,14 +14,20 @@ dotenv.config();
 async function start() {
   const app = express();
   
+  // parse allowed origins from env and trim spaces
+  const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || '';
+  const allowedOrigins = allowedOriginsEnv
+    ? allowedOriginsEnv.split(',').map(s => s.trim()).filter(Boolean)
+    : ['*'];
+
   // Configuration CORS cohérente pour Express et Socket.IO
   const corsOptions = {
-    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+    origin: allowedOrigins.length === 1 && allowedOrigins[0] === '*' ? '*' : allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   };
-  
+
   app.use(cors(corsOptions));
   app.use(express.json());
 
@@ -29,10 +35,10 @@ async function start() {
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     console.log(`🌐 Request from origin: ${origin}`);
-    if (origin && corsOptions.origin !== '*') {
-      const allowedOrigins = Array.isArray(corsOptions.origin) ? corsOptions.origin : [corsOptions.origin];
-      if (!allowedOrigins.includes(origin)) {
-        console.log(`❌ Origin ${origin} not in allowed list: ${allowedOrigins.join(', ')}`);
+    if (origin) {
+      const allowed = corsOptions.origin === '*' ? ['*'] : Array.isArray(corsOptions.origin) ? corsOptions.origin : [corsOptions.origin];
+      if (allowed[0] !== '*' && !allowed.includes(origin)) {
+        console.log(`❌ Origin ${origin} not in allowed list: ${allowed.join(', ')}`);
       } else {
         console.log(`✅ Origin ${origin} is allowed`);
       }
@@ -48,7 +54,8 @@ async function start() {
   
   const io = new IOServer(httpServer, {
     cors: {
-      origin: "*",  // Temporairement très permissif pour debug
+      // reuse the parsed allowed origins for Socket.IO
+      origin: allowedOrigins.length === 1 && allowedOrigins[0] === '*' ? '*' : allowedOrigins,
       methods: ["GET", "POST"],
       allowedHeaders: ["*"],
       credentials: true
