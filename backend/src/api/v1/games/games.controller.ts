@@ -239,7 +239,7 @@ async function finishRound(gameId: string, roundId: string) {
     const io = getSocketServer();
     if (io) {
         io.to(game.room.code).emit('game-updated'); 
-        io.to(game.room.code).emit('room-updated'); // Force room update for scores
+        io.to(game.room.code).emit('room-updated', { room: await prisma.room.findUnique({ where: { id: game.roomId }, include: { players: { include: { user: { select: { id: true, name: true } } } } } }) }); // Payload included now
     }
 }
 
@@ -264,7 +264,7 @@ export async function playCard(req: AuthRequest, res: Response, next: NextFuncti
                         orderBy: { index: 'desc' }, take: 1,
                         include: { plays: { include: { handCard: { include: { card: true } } } } }
                     },
-                    hands: { include: { cards: { include: { card: true } } } }
+                    hands: { include: { cards: { include: { card: true, plays: true } } } }
                 }
             }
         }
@@ -315,9 +315,12 @@ export async function playCard(req: AuthRequest, res: Response, next: NextFuncti
 
         // Constraint applies only if we play a Number card of a different suit
         if (playedType === 'NUMBER' && playedSuit !== leadSuit) {
-             // Check if user has the lead suit in hand
+             // Check if user has the lead suit in hand (excluding played cards)
              const hasLeadSuitInHand = hand?.cards.some(hc => 
-                 hc.card.cardType === 'NUMBER' && hc.card.suit === leadSuit && hc.id !== targetHandCard.id
+                 hc.card.cardType === 'NUMBER' && 
+                 hc.card.suit === leadSuit && 
+                 hc.id !== targetHandCard.id &&
+                 (!hc.plays || hc.plays.length === 0)
              );
              
              if (hasLeadSuitInHand) {

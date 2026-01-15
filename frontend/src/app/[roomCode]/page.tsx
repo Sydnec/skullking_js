@@ -81,7 +81,16 @@ export default function RoomPage() {
 
   // socket handlers (top-level hook call)
   useSocket({ code, userId }, {
-    'room-updated': fetchRoom,
+    'room-updated': (payload: any) => { 
+        if (payload?.room) {
+             setRoom((prev: any) => ({ 
+                 ...prev, 
+                 ...payload.room, 
+                 __presentUserIds: prev?.__presentUserIds // Preserve presence
+             }));
+        }
+        fetchRoom(); 
+    },
     'player-joined': fetchRoom,
     'room-list-updated': fetchRoom,
     'game-started': () => { fetchRoom(); refetchGame(); },
