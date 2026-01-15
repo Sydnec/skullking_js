@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import styles from '../RoomPage.module.css';
+import styles from './SettingsPanel.module.css';
 import Dropdown from '../../components/Dropdown';
 import ToggleSwitch from '../../components/ToggleSwitch';
 import Tooltip from '../../components/Tooltip';

@@ -1,0 +1,62 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg);
+}
+
+.title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.titleText {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.titleText h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.headerControls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Full-screen overlay used to create a single unified theme transition */
+.themeOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: var(--bg); /* use current theme background */
+  opacity: 1;
+  transition: opacity 480ms ease, background-color 360ms ease;
+}
+
+.fadeOut {
+  opacity: 0;
+}

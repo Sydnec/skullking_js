@@ -163,9 +163,21 @@ async function finishRound(gameId: string, roundId: string) {
 
     for (const p of roomPlayers) {
         const score = roundScores[p.id] || 0;
+        const newTotal = p.score + score;
+
         await prisma.roomPlayer.update({
             where: { id: p.id },
             data: { score: { increment: score } }
+        });
+        
+        // Record score history
+        await prisma.roundScore.create({
+            data: {
+                roundId: round.id,
+                playerId: p.id,
+                score: score,
+                totalScore: newTotal
+            }
         });
     }
 

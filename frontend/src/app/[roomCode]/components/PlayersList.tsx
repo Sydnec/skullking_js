@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import styles from '../RoomPage.module.css';
+import styles from './PlayersList.module.css';
 
 export default function PlayersList({ room, userId, onKick }: { room: any; userId: string | null; onKick: (p: any) => Promise<void>; }) {
   return (

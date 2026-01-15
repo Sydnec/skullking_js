@@ -1,0 +1,54 @@
+.card {
+  background: var(--card);
+  padding: 0px 14px;
+  border-radius: 8px;
+}
+
+/* By default (desktop): players list is vertical */
+.playersGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* réduit l'espacement vertical entre joueurs */
+  align-items: start;
+  /* vertical scroll on desktop */
+  overflow-y: auto;
+  padding-bottom: 6px;
+}
+
+.playerCard {
+  display: flex;
+  gap: 8px; /* réduit l'espace horizontal entre avatar et contenu */
+  align-items: center;
+  padding: 8px; /* padding réduit */
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.playerInner { display: flex; align-items: center; gap: 6px; }
+.playerName { font-weight: 600; font-size: 14px; }
+
+.presenceDot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.presenceDot.present { background: #22c55e; }
+.presenceDot.absent { background: #ef4444; }
+
+.kickBtn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  margin-left: 8px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.kickBtn:hover { background: var(--border); color: var(--accent); }
+
+@media (max-width: 900px) {
+    .playersGrid {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 6px;
+        gap: 8px;
+    }
+    .playerCard { padding: 6px; }
+}

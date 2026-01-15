@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import styles from '../RoomPage.module.css';
+import styles from './Controls.module.css';
 
 export default function Controls({ status, room, userId, onStart, onLeaveOrDelete }: { status: string; room: any; userId: string | null; onStart: () => Promise<void>; onLeaveOrDelete: () => Promise<void>; }) {
   return (

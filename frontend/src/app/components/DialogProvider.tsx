@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import styles from './DialogProvider.module.css';
 
 type DialogState =
   | null
@@ -78,12 +79,12 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     <DialogContext.Provider value={{ showAlert, showConfirm }}>
       {children}
       {dialog && (
-        <div style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center', zIndex: 9999 }} aria-hidden={false}>
-          <div style={{ background: 'rgba(0,0,0,0.5)', position: 'absolute', inset: 0 }} onClick={() => onCancel()} />
-          <div ref={containerRef} tabIndex={-1} role="dialog" aria-modal="true" style={{ background: 'var(--card)', padding: 18, borderRadius: 10, minWidth: 280, zIndex: 10000 }}>
-            <div style={{ marginBottom: 12, fontWeight: 700 }}>{dialog.title || ''}</div>
-            <div style={{ marginBottom: 12 }}>{dialog.message}</div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div className={styles.overlay} aria-hidden={false}>
+          <div className={styles.backdrop} onClick={() => onCancel()} />
+          <div ref={containerRef} tabIndex={-1} role="dialog" aria-modal="true" className={styles.dialog}>
+            <div className={styles.dialogTitle}>{dialog.title || ''}</div>
+            <div className={styles.dialogMessage}>{dialog.message}</div>
+            <div className={styles.dialogActions}>
               {dialog.type === 'confirm' ? (
                 <>
                   <button type="button" className="btn btn-plain" onClick={() => onCancel()}>Annuler</button>

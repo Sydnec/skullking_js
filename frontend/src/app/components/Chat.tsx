@@ -208,8 +208,6 @@ export default function Chat({ roomCode, visible }: { roomCode?: string; visible
           tabIndex={0}
           aria-pressed={open}
           aria-label={open ? 'Fermer le chat' : 'Ouvrir le chat'}
-          // s'assurer que le header occupe toute la largeur du parent afin que la zone cliquable soit large
-          style={{ width: '100%' }}
           onClick={() => toggleOpen()}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleOpen(); } }}
         >

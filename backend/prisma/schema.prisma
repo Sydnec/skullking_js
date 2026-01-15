@@ -41,6 +41,7 @@ model RoomPlayer {
   seat       Int?
   score      Int    @default(0)
   connected  Boolean @default(true)
+  roundScores RoundScore[]
 }
 
 model Message {
@@ -81,6 +82,7 @@ model Round {
   predictions Prediction[]
   predictionsCount Int?
   createdAt  DateTime @default(now())
+  roundScores RoundScore[]
 }
 
 model Prediction {
@@ -183,4 +185,15 @@ enum Suit {
   GREEN
   PURPLE
   YELLOW
+}
+
+model RoundScore {
+  id        String @id @default(uuid())
+  roundId   String
+  round     Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    RoomPlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  score     Int
+  totalScore Int
+  createdAt DateTime @default(now())
 }

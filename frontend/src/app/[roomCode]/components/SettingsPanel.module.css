@@ -1,0 +1,9 @@
+.card {
+  background: var(--card);
+  padding: 0px 14px;
+  border-radius: 8px;
+}
+
+.smallMuted { font-size: 13px; color: var(--muted); }
+
+.selectSmall { width: 100px; padding: 6px; }

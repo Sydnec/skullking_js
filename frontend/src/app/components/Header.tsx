@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { logDev } from '../../lib/logger';
-import styles from '../layout.module.css';
+import styles from './Header.module.css';
 import UserMenu from './UserMenu';
 import ThemeToggle from './ThemeToggle';
 
@@ -63,14 +63,16 @@ export default function Header() {
     return () => clearTimeout(applyThemeTimer);
   }, [theme]);
 
+  const overlayClass = `${styles.themeOverlay} ${overlayFading ? styles.fadeOut : ''}`;
+
   return (
-    <header className={`header ${styles.header}`}>
-      {overlayVisible && <div className={`theme-overlay ${overlayFading ? 'fade-out' : ''}`} aria-hidden />}
-      <div className="title">
-        <div className="logo" aria-hidden>SK</div>
+    <header className={styles.header}>
+      {overlayVisible && <div className={overlayClass} aria-hidden />}
+      <div className={styles.title}>
+        <div className={styles.logo} aria-hidden>SK</div>
         <div className={styles.titleText}>
           <h1>SkullKing</h1>
-          <div className="subtitle">édition PCR</div>
+          <div className={styles.subtitle}>édition PCR</div>
         </div>
       </div>
       <div className={styles.headerControls}>

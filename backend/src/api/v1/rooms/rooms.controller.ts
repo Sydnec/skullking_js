@@ -360,6 +360,19 @@ export async function getRoomGame(req: Request, res: Response, next: NextFunctio
       return res.status(404).json({ error: 'Game not found' });
     }
 
+    // Fetch Score History
+    const history = await prisma.round.findMany({
+        where: { gameId: game.id },
+        select: {
+            number: true,
+            roundScores: {
+                select: { playerId: true, score: true, totalScore: true }
+            }
+        },
+        orderBy: { number: 'asc' }
+    });
+    (game as any).scoreHistory = history;
+
     console.log(`[getRoomGame] Game found, sanitizing...`);
 
     // Sanitize

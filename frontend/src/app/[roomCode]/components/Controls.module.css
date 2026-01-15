@@ -1,0 +1,11 @@
+.card {
+  background: var(--card);
+  padding: 0px 14px;
+  border-radius: 8px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

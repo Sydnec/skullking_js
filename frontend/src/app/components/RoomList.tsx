@@ -94,7 +94,7 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
                     try {
                       const s = r.settings || {};
                       return (
-                        <ul style={{ margin: 0, padding: '4px 8px', listStyle: 'none'}}>
+                        <ul className={styles.settingsList}>
                           {s.gameFormat ? <li><strong>Format :</strong> {s.gameFormat}</li> : <li><strong>Format :</strong> Classique</li>}
                           {s.scoreMethod ? <li><strong>Score :</strong> {s.scoreMethod}</li> : <li><strong>Score :</strong> Skull King</li>}
                           <li><strong>Pouvoirs :</strong> {s.piratePowers ? 'Oui' : 'Non'}</li>
@@ -114,13 +114,13 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
 
               <div className={styles.center}>
                 <Tooltip title={r.players && r.players.length ? (
-                  <ul style={{ margin: 0, padding: '6px 8px'}}>
+                  <ul className={styles.playersList}>
                     {r.players.map((p: any) => (
                       <li key={p.id}>{p.user?.name || p.userName || p.userId || 'Utilisateur'}</li>
                     ))}
                   </ul>
                 ) : (
-                  <div style={{ padding: '6px 8px' }}>Aucun joueur</div>
+                  <div className={styles.noPlayers}>Aucun joueur</div>
                 )}>
                   <div className={styles.playerCount}>{playersCount}/{maxPlayers}</div>
                 </Tooltip>
@@ -140,12 +140,12 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
 
   return (
     <div className={styles.container} aria-label="Liste des tables de jeu">
-      <div style={{ marginBottom: 12 }}>
+      <div className={styles.sectionFirst}>
         <h3>Vos tables :</h3>
         {renderList(myTables)}
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div className={styles.section}>
         <h3>Tables publiques :</h3>
         {renderList(publicTables)}
       </div>

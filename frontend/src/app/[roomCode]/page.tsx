@@ -193,14 +193,12 @@ export default function RoomPage() {
      return (
         <div className={styles.singleColumnContainer}>
            <GameTable room={room} game={game} userId={userId} />
-           {/* Allow owner to abort game or delete room even in game? Maybe add a small menu or just use browser back */}
-           <div style={{ marginTop: 10 }}>
-              { /* Minimal controls could go here if needed */ }
+           
+           <div className={styles.footerActions}>
               <button className={styles.secondaryBtn} onClick={() => router.push('/')}>Quitter (Retour accueil)</button>
            </div>
-           <div style={{ width: '100%', maxWidth: 900, marginTop: 18 }}>
-              <Chat roomCode={room?.code} visible={!!userId} />
-           </div>
+
+           <Chat roomCode={room?.code} visible={!!userId} />
         </div>
      );
   }
@@ -230,9 +228,7 @@ export default function RoomPage() {
         {/* Controls moved into settings column; no separate controls block here */}
       </div>
 
-      <div style={{ width: '100%', maxWidth: 900, marginTop: 18 }}>
-        <Chat roomCode={room?.code} visible={!!userId && (room?.players || []).some((p: any) => p.user?.id === userId)} />
-      </div>
+      <Chat roomCode={room?.code} visible={!!userId && (room?.players || []).some((p: any) => p.user?.id === userId)} />
     </div>
   );
 }

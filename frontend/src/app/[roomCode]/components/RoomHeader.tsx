@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import styles from '../RoomPage.module.css';
+import styles from './RoomHeader.module.css';
 import { useDialog } from '../../components/DialogProvider';
 
 export default function RoomHeader({ room, status, showToast }: { room: any; status: string; showToast?: (msg: string) => void }) {

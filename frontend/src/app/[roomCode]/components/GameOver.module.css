@@ -1,0 +1,146 @@
+
+.gameOverContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.gameOverTitle {
+  font-size: 2rem;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.podiumContainer {
+  display: flex; 
+  justify-content: center; 
+  gap: 20px; 
+  align-items: flex-end; 
+  height: 150px; 
+  margin-bottom: 30px; 
+  padding-bottom: 20px; 
+  border-bottom: 1px solid var(--border);
+}
+
+.podiumItem {
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  width: 80px;
+}
+
+.podiumBar {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  position: relative;
+  margin-bottom: 10px;
+  background: var(--muted);
+}
+
+.podiumBar.winner {
+  background: #eab308;
+}
+
+.podiumScore {
+  position: absolute; 
+  top: -25px; 
+  width: 100%; 
+  text-align: center; 
+  font-weight: bold; 
+  font-size: 1.1rem;
+}
+
+.podiumCrown {
+  position: absolute; 
+  top: 50%; 
+  left: 50%; 
+  transform: translate(-50%, -50%); 
+  font-size: 1.5rem;
+}
+
+.podiumName {
+  font-weight: bold; 
+  font-size: 0.8rem; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  white-space: nowrap; 
+  width: 100%;
+  text-align: center;
+}
+
+.chartContainer {
+  margin-bottom: 30px;
+}
+
+.chartSvg {
+  background: var(--card-bg); 
+  border: 1px solid var(--border); 
+  border-radius: 8px;
+}
+
+.legendContainer {
+  display: flex; 
+  flex-wrap: wrap; 
+  justify-content: center; 
+  gap: 10px; 
+  margin-top: 10px;
+}
+
+.legendItem {
+  display: flex; 
+  align-items: center; 
+  gap: 5px; 
+  font-size: 0.8rem;
+}
+
+.rankingList {
+  text-align: left; 
+  max-width: 600px; 
+  margin: 0 auto;
+  list-style: none; 
+  padding: 0;
+}
+
+.rankingItem {
+  padding: 8px; 
+  border-bottom: 1px solid var(--border); 
+  display: flex; 
+  justify-content: space-between; 
+  font-size: 1rem; 
+  background: transparent;
+}
+
+.rankingItemWinner {
+  background: rgba(234, 179, 8, 0.1);
+}
+
+.backBtn {
+  display: block;
+  margin: 20px auto 0;
+  padding: 12px 24px;
+  background: var(--muted);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* Single column layout re-implementation for standalone usage if needed, based on RoomPage.module.css */
+.singleColumnContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px;
+  flex: 1;
+  width: 100%;
+}
+
+.mainCard {
+  width: 100%;
+  max-width: 900px;
+  background: var(--card);
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(10,10,10,0.06);
+}

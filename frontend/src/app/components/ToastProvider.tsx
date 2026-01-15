@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useCallback, useRef } from 
 
 const ToastContext = createContext<{ showToast: (msg: string) => void } | null>(null);
 
+import styles from './ToastProvider.module.css';
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
@@ -23,7 +25,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {visible && toast && (
-        <div style={{ position: 'fixed', right: 18, bottom: 18, background: 'var(--card)', padding: '8px 12px', borderRadius: 8, zIndex: 9999 }} role="status" aria-live="polite">
+        <div className={styles.toast} role="status" aria-live="polite">
           {toast}
         </div>
       )}
