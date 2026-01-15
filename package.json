@@ -1,7 +1,10 @@
 {
   "name": "skullking",
   "private": true,
-  "workspaces": ["backend", "frontend"],
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
     "install:all": "npm install",
     "postinstall": "npm --workspace backend run prisma:generate || true",
