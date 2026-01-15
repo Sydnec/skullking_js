@@ -138,7 +138,7 @@ export default function GameOver({ game, room, userId }: { game: any, room: any,
                             return (
                                 <li key={p.id} className={`${styles.rankingItem} ${isWinner ? styles.rankingItemWinner : ''}`}>
                                     <span>#{idx+1} <strong>{p.user?.name}</strong></span>
-                                    <span>{p.score} pts</span>
+                                    <span>{p.score ?? 0} pts</span>
                                 </li>
                             );
                         })}

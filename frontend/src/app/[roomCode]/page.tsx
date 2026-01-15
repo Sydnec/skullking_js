@@ -187,7 +187,12 @@ export default function RoomPage() {
      if (gameLoading && !game) return <div className="card">Chargement de la partie...</div>;
      
      if (game?.state === 'FINISHED') {
-         return <GameOver game={game} room={room} userId={userId} />;
+         return (
+             <div className={styles.singleColumnContainer}>
+                 <GameOver game={game} room={room} userId={userId} />
+                 <Chat roomCode={room?.code} visible={!!userId} />
+             </div>
+         );
      }
 
      return (

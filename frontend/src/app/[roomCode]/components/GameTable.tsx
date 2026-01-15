@@ -31,6 +31,39 @@ function getCardClass(card: any) {
   return classes.join(' ');
 }
 
+// Helper to get image path
+function getCardImage(card: any) {
+  if (!card) return null;
+  const root = '/cards';
+  if (card.cardType === 'NUMBER' && card.suit) return `${root}/${card.suit.toLowerCase()}.jpg`;
+  if (card.cardType === 'PIRATE') {
+     // Deterministic selection based on card ID
+     let sum = 0;
+     const idStr = String(card.id || '0');
+     for(let i=0; i<idStr.length; i++) sum += idStr.charCodeAt(i);
+     const idx = (sum % 5) + 1; 
+     return `${root}/pirate${idx}.jpg`;
+  }
+  if (card.cardType === 'SKULLKING') return `${root}/skullking.jpg`;
+  if (card.cardType === 'MERMAID') return `${root}/mermaid.jpg`;
+  if (card.cardType === 'ESCAPE') return `${root}/escape.jpg`;
+  if (card.cardType === 'TIGRESS') return `${root}/tigress.jpg`;
+  return null;
+}
+
+function CardView({ card, className, onClick, children }: { card: any, className?: string, onClick?: () => void, children?: React.ReactNode }) {
+  const imgSrc = getCardImage(card);
+  return (
+    <div className={className} onClick={onClick}>
+       {imgSrc && <img src={imgSrc} alt="" className={styles.cardBgImage} onError={(e) => e.currentTarget.style.display = 'none'} />}
+       <div className={styles.cardContent}>
+          {card.label}
+          {children}
+       </div>
+    </div>
+  );
+}
+
 export default function GameTable({ room, game, userId }: { room: any; game: any; userId: string | null }) {
   const [submitting, setSubmitting] = useState(false);
   const [tigressModal, setTigressModal] = useState<{ open: boolean; cardId: string | null }>({ open: false, cardId: null });
@@ -255,11 +288,10 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
                      </div>
                      <div className={styles.cardSlot}>
                         {activeCard ? (
-                             <div className={getCardClass(activeCard)}>
-                                {activeCard.label}
+                             <CardView card={activeCard} className={getCardClass(activeCard)}>
                                 {activePlay?.playChoice === 'PIRATE' && <div className={styles.cardIcon}>⚔️</div>}
                                 {activePlay?.playChoice === 'ESCAPE' && <div className={styles.cardIcon}>🏳️</div>}
-                             </div>
+                             </CardView>
                         ) : (
                             <div className={styles.emptySlot}>
                                 {isActive ? '...' : ''}
@@ -282,11 +314,10 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
                 <div style={{display:'flex', gap:10, flexWrap:'wrap', justifyContent:'center'}}>
                     {lastTrick.plays?.map((pl: any) => (
                         <div key={pl.id} style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
-                            <div className={getCardClass(pl.handCard.card)}>
-                                {pl.handCard.card.label}
+                            <CardView card={pl.handCard.card} className={getCardClass(pl.handCard.card)}>
                                 {pl.playChoice === 'PIRATE' && <span className={styles.cardIcon}>⚔️</span>}
                                 {pl.playChoice === 'ESCAPE' && <span className={styles.cardIcon}>🏳️</span>}
-                            </div>
+                            </CardView>
                             <span style={{fontSize:'0.7em', marginTop:4}}>{players.find((p:any) => p.id === pl.playerId)?.user?.name}</span>
                         </div>
                     ))}
@@ -307,13 +338,12 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
         </div>
         <div className={styles.handCards}>
           {myHand?.cards?.filter((c:any) => !playedCardIds.has(c.id)).map((hc: any) => (
-             <div 
+             <CardView 
                  key={hc.id} 
+                 card={hc.card}
                  className={`${getCardClass(hc.card)} ${isMyTurn && !submitting ? styles.handCardInteractive : styles.handCardInactive} ${isMyTurn ? styles.handCardActive : ''}`}
                  onClick={() => handleCardClick(hc.card, hc.id)}
-             >
-               {hc.card.label}
-             </div>
+             />
           ))}
           {!myHand?.cards?.length && <div>Aucune carte en main</div>}
         </div>

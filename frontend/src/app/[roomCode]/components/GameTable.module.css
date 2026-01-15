@@ -354,3 +354,28 @@
     padding: 4px 6px;
   }
 }
+
+.cardBgImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 6px; /* slightly less than card border-radius */
+  z-index: 0;
+  opacity: 0.9;
+}
+
+.cardContent {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  font-weight: 900;
+  font-size: 1.1em;
+}
+
+.cardItem {
+  overflow: hidden; /* Ensure image doesn't bleed */
+}

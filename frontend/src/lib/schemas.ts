@@ -36,6 +36,9 @@ export const playerSchema = z.object({
   userId: z.string().nullable().optional(),
   userName: z.string().nullable().optional(),
   user: userSchema.optional(),
+  score: z.number().optional(),
+  seat: z.number().nullable().optional(),
+  connected: z.boolean().optional(),
 });
 
 // Room
