@@ -18,6 +18,8 @@ import SettingsPanel from './components/SettingsPanel';
 import { useToast } from '../components/ToastProvider';
 import { useOwnerGuard } from '../hooks/useOwnerGuard';
 import GameTable from './components/GameTable';
+import GameOver from './components/GameOver';
+// ... existing imports
 import { useGame } from '../../lib/useGame';
 
 export default function RoomPage() {
@@ -175,6 +177,10 @@ export default function RoomPage() {
      );
      if (gameLoading && !game) return <div className="card">Chargement de la partie...</div>;
      
+     if (game?.state === 'FINISHED') {
+         return <GameOver game={game} room={room} userId={userId} />;
+     }
+
      return (
         <div className={styles.singleColumnContainer}>
            <GameTable room={room} game={game} userId={userId} />

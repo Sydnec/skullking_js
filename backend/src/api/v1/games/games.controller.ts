@@ -2,7 +2,7 @@ import prisma from '../../../common/prisma';
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../../common/authMiddleware';
 import { getSocketServer } from '../../../common/socket';
-import { determineLeadSuit, determineTrickWinner, getRoundSequence, calculateRoundScores } from './game.logic';
+import { determineLeadSuit, determineTrickOutcome, getRoundSequence, calculateRoundScores } from './game.logic';
 
 export async function listGames(_req: Request, res: Response, next: NextFunction) {
   try {
@@ -134,7 +134,17 @@ async function finishRound(gameId: string, roundId: string) {
         where: { id: roundId },
         include: {
             predictions: true,
-            tricks: { include: { plays: true } }
+            tricks: { 
+                include: { 
+                    plays: { 
+                        include: { 
+                            handCard: { 
+                                include: { card: true } 
+                            } 
+                        } 
+                    } 
+                } 
+            }
         }
     });
     if (!round) return;
@@ -165,7 +175,7 @@ async function finishRound(gameId: string, roundId: string) {
         await prisma.round.update({ where: { id: roundId }, data: { phase: 'DONE' } });
     } else {
         // Next round
-        const roundsSeq = getRoundSequence(game.format);
+        const roundsSeq = getRoundSequence(game.format, roomPlayers.length);
         const nextRoundNum = round.number + 1;
         const nextHandSize = roundsSeq[nextRoundNum - 1] || nextRoundNum;
 
@@ -344,12 +354,33 @@ export async function playCard(req: AuthRequest, res: Response, next: NextFuncti
 
     if (updatedTrick && updatedTrick.plays.length >= players.length) {
         // Trick complete
-        const winningPlayIndex = determineTrickWinner(updatedTrick.plays);
-        const winnerId = updatedTrick.plays[winningPlayIndex].playerId;
+        const { winnerIndex, destroyed, destroyerIndex } = determineTrickOutcome(updatedTrick.plays);
+        
+        let winnerId;
+        if (destroyed) {
+            // If Kraken destroyed, NO winner. (winnerId = null or similar).
+            // But we need to update DB. Let's assume Prisma allows nullable string for winnerId?
+            // "trick" model winnerId is usually String?
+            // If schema doesn't allow nullable, we might have an issue.
+            // Let's check schema. Assuming it's nullable or we use a flag.
+            // If not nullable, we might assign it to the Kraken player but not count it for score.
+            // Wait, round scores depend on winnerId.
+            // A destroyed trick shouldn't count for ANY score.
+            // We can set it to null. if schema allows.
+            winnerId = null; 
+            
+            // Wait, who leads next? "The player who played the Kraken leads".
+            // We need to store this info somewhere.
+            // Maybe we can store "starterId" of NEXT trick now? No, we do that in collectTrick.
+            // We can store it in the trick itself? "nextStarterId"?
+            // Or just infer it: if winnerId is null, look for Kraken.
+        } else {
+             winnerId = updatedTrick.plays[winnerIndex].playerId;
+        }
 
         await prisma.trick.update({
             where: { id: currentTrick.id },
-            data: { winnerId }
+            data: { winnerId: winnerId } // Ensure schema allows null
         });
         
         // STOP HERE. Wait for manual collection. 
@@ -374,7 +405,7 @@ export async function collectTrick(req: AuthRequest, res: Response, next: NextFu
     const game = await prisma.game.findUnique({
         where: { id: gameId },
         include: {
-            room: true,
+            room: { include: { players: true } },
             rounds: { 
                 orderBy: { number: 'desc' }, take: 1,
                 include: { 
@@ -389,11 +420,49 @@ export async function collectTrick(req: AuthRequest, res: Response, next: NextFu
     if (!currentRound) return res.status(400).json({ error: 'No active round' });
     
     const currentTrick = currentRound.tricks[0];
-    if (!currentTrick || !currentTrick.winnerId) return res.status(400).json({ error: 'Trick not finished or already collected (next trick exists?)' });
+    // winnerId can be null if destroyed, so we just check if it's "finished" (winner determined or destroyed)
+    // but we can't easily check "destroyed" flag on model without fetching plays or adding a column.
+    // However, playCard only sets winnerId (even to null) when trick is full.
+    // If winnerId is NULL on DB, `collectTrick` might think it's not finished?
+    // Wait, `if (!currentTrick || !currentTrick.winnerId)` will fail if null.
+    // Use explicit check.
+    // If plays.length == players.length? 
+    // Let's rely on checking Plays count.
+    
+    // Fetch full trick with plays count and card details (for Kraken check)
+    const fullTrick = await prisma.trick.findUnique({
+        where: { id: currentTrick.id },
+        include: { plays: { include: { handCard: { include: { card: true } } } } } 
+    });
+    
+    // Check if full
+    const playersCount = game.room.players.length; 
+    if (!fullTrick || fullTrick.plays.length < playersCount) {
+         return res.status(400).json({ error: 'Trick not finished' });
+    }
+    
+    // Determine next starter logic...
 
     // Check if round is over (cards in hand?)
     // Simply check if this was the last trick.
     // Hand size tells us total tricks.
+    // If winnerId is null, it means Kraken destroyed it.
+    // We need to fetch the plays to find who played Kraken to determine next starter.
+    let nextStarterId = currentTrick.winnerId;
+    
+    if (!nextStarterId) {
+         // Trick was destroyed (Kraken).
+         // PlayCard handles setting winnerId to null.
+         // We find who played Kraken here.
+         const krakenPlay = fullTrick.plays.find(p => p.handCard.card.cardType === 'KRAKEN');
+         if (krakenPlay) {
+             nextStarterId = krakenPlay.playerId;
+         } else {
+             // Fallback
+             nextStarterId = currentTrick.starterId;
+         }
+    }
+
     if (currentTrick.index >= currentRound.handSize) {
         // Round Over
         await prisma.round.update({
@@ -408,7 +477,7 @@ export async function collectTrick(req: AuthRequest, res: Response, next: NextFu
             data: {
                 roundId: currentRound.id,
                 index: currentTrick.index + 1,
-                starterId: currentTrick.winnerId
+                starterId: nextStarterId
             }
         });
     }

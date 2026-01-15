@@ -66,7 +66,15 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
   // If undefined, maybe round finished or just starting?
   // We sort tricks by index asc. Last one is current.
   const tricks = currentRound.tricks || [];
+  // Sort properly by index
+  tricks.sort((a:any, b:any) => a.index - b.index);
+  
   const currentTrick = tricks[tricks.length - 1];
+  
+  // Show last COMPLETED trick (even if it is the current one waiting for collection)
+  const completedTricks = tricks.filter((t: any) => t.plays && t.plays.length >= players.length);
+  const lastTrick = completedTricks.length > 0 ? completedTricks[completedTricks.length - 1] : null;
+  const [showLastTrick, setShowLastTrick] = useState(false);
 
   // Determine Lead Suit
   let leadSuit = null;
@@ -205,6 +213,14 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
                 )}
              </div>
         )}
+        {lastTrick && (
+            <button 
+                onClick={() => setShowLastTrick(true)}
+                style={{ marginLeft: 10, padding: '4px 8px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 4, cursor:'pointer' }}
+            >
+                Voir dernier pli
+            </button>
+        )}
       </div>
 
       <div className={styles.gameBoard}>
@@ -288,6 +304,33 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
           );
         })}
       </div>
+
+      {/* Last Trick Modal */}
+      {showLastTrick && lastTrick && (
+         <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }} onClick={() => setShowLastTrick(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ backgroundColor: 'var(--card)', padding: 20, borderRadius: 12, border: '1px solid var(--border)', maxWidth: '90%' }}>
+                <h3 style={{marginBottom: 15, textAlign:'center'}}>Dernier Pli (Vainqueur: {players.find((p:any) => p.id === lastTrick.winnerId)?.user?.name || 'Personne / Détruit'})</h3>
+                <div style={{display:'flex', gap:10, flexWrap:'wrap', justifyContent:'center'}}>
+                    {lastTrick.plays?.map((pl: any) => (
+                        <div key={pl.id} style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
+                            <div style={getCardStyle(pl.handCard.card)}>
+                                {pl.handCard.card.label}
+                                {pl.playChoice === 'PIRATE' && <span style={{position:'absolute', bottom:2}}>⚔️</span>}
+                                {pl.playChoice === 'ESCAPE' && <span style={{position:'absolute', bottom:2}}>🏳️</span>}
+                            </div>
+                            <span style={{fontSize:'0.7em', marginTop:4}}>{players.find((p:any) => p.id === pl.playerId)?.user?.name}</span>
+                        </div>
+                    ))}
+                </div>
+                <div style={{marginTop: 20, textAlign:'center'}}>
+                   <button onClick={() => setShowLastTrick(false)} style={{padding:'8px 16px', borderRadius:6, border:'none', background:'var(--muted)', color:'white', cursor:'pointer'}}>Fermer</button>
+                </div>
+            </div>
+        </div>
+      )}
 
       <div className={styles.myHand} style={{ borderColor: leadColorHex, borderTopColor: leadColorHex }}>
         <h3>
