@@ -18,11 +18,31 @@ export function getSocketSingleton(): Socket | null {
 }
 
 export function ensureSocket(url?: string): Socket {
-  const resolved = url || (typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || window.location.origin) : (process.env.NEXT_PUBLIC_API_URL || ''));
+  let resolved = url;
+  
+  if (!resolved && typeof window !== 'undefined') {
+    // Priority 1: Explicit env var
+    if (process.env.NEXT_PUBLIC_SOCKET_URL) {
+      resolved = process.env.NEXT_PUBLIC_SOCKET_URL;
+    } 
+    // Priority 2: Derive from window location (assuming dev setup where backend is on port 3001)
+    else if (window.location.hostname) {
+       // If running on standard ports (dev), assume backend is on 3001 with same hostname
+       // This handles localhost -> localhost:3001 AND 192.168.x.x -> 192.168.x.x:3001
+       const protocol = window.location.protocol;
+       const hostname = window.location.hostname;
+       resolved = `${protocol}//${hostname}:3001`;
+    }
+    // Fallback
+    else {
+       resolved = process.env.NEXT_PUBLIC_API_URL || ''; 
+    }
+  }
+
   if (!singletonSocket || singletonUrl !== resolved) {
     try {
       // configure socket.io reconnection with sensible backoff parameters
-      singletonSocket = io(resolved, {
+      singletonSocket = io(resolved || '', {
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 500,

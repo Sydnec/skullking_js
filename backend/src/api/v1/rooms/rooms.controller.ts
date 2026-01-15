@@ -162,6 +162,19 @@ function shuffle<T>(arr: T[]) {
   return arr;
 }
 
+function getRoundSequence(format: string): number[] {
+  switch (format) {
+    case 'NO_ODD': return [2, 4, 6, 8, 10];
+    case 'READY_TO_FIGHT': return [6, 7, 8, 9, 10];
+    case 'LIGHTNING_ATTACK': return [5, 5, 5, 5, 5];
+    case 'BARRAGE_SHOT': return [10, 10, 10, 10, 10, 10, 10, 10, 10, 10];
+    case 'WHIRLWIND': return [9, 7, 5, 3, 1];
+    case 'BEDTIME': return [1];
+    case 'CLASSIC':
+    default: return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  }
+}
+
 export async function startRoom(req: Request, res: Response, next: NextFunction) {
   try {
     const code = req.params.code;
@@ -175,24 +188,199 @@ export async function startRoom(req: Request, res: Response, next: NextFunction)
     if (room.ownerId !== userId) return res.status(403).json({ error: 'Only owner can start the game' });
 
     const players = room.players || [];
-    const shuffled = shuffle([...players]);
+    if (players.length < 2) return res.status(400).json({ error: 'Not enough players (min 2)' });
 
-    // assign seats (0..n-1)
-    await Promise.all(shuffled.map((p: any, i: number) => prisma.roomPlayer.update({ where: { id: p.id }, data: { seat: i } })));
+    // 1. Shuffle players and assign seats
+    const shuffledPlayers = shuffle([...players]);
+    await Promise.all(shuffledPlayers.map((p: any, i: number) => prisma.roomPlayer.update({ where: { id: p.id }, data: { seat: i } })));
 
-    // update room status to RUNNING
-    const updated = await prisma.room.update({ where: { id: room.id }, data: { status: 'RUNNING' }, include: ROOM_INCLUDE });
+    // 2. Clear old game if exists
+    try {
+      const g = await prisma.game.findUnique({ where: { roomId: room.id } });
+      if (g) await prisma.game.delete({ where: { roomId: room.id } });
+    } catch { /* ignore */ }
+
+    // 3. Create Game
+    const settings: any = room.settings || {};
+    const format = settings.gameFormat || 'CLASSIC';
+    const roundsSeq = getRoundSequence(format);
+    
+    // Create game record
+    const game = await prisma.game.create({
+      data: {
+        roomId: room.id,
+        format,
+        currentRound: 1,
+        totalRounds: roundsSeq.length,
+        state: 'RUNNING'
+      }
+    });
+
+    // 4. Create Round 1
+    const handSize = roundsSeq[0];
+    // Dealer is usually determined by seat order. For round 1, let's say seat 0 is dealer (or last seat deals to first to start). 
+    // Actually, dealer rotates. Let's pick random or start with seat 0.
+    // If seat 0 is dealer, seat 1 starts.
+    const dealerPlayer = shuffledPlayers[0]; 
+    
+    const round = await prisma.round.create({
+      data: {
+        gameId: game.id,
+        number: 1,
+        handSize,
+        dealerId: dealerPlayer.id,
+        phase: 'PREDICTION',
+        predictionsCount: 0
+      }
+    });
+
+    // 5. Deal cards
+    // Fetch all cards
+    const allCards = await prisma.card.findMany();
+    // Filter deck based on settings
+    const useKraken = !!settings.kraken;
+    const useWhale = !!settings.whale;
+    const useLoot = !!settings.loot;
+    
+    let deck = allCards.filter(c => {
+       if (c.cardType === 'KRAKEN' && !useKraken) return false;
+       if (c.cardType === 'WHITEWHALE' && !useWhale) return false;
+       if (c.cardType === 'LOOT' && !useLoot) return false;
+       // Remove special stuff if needed, but assuming basic deck + options
+       return true;
+    });
+
+    deck = shuffle(deck);
+
+    // Deal 'handSize' cards to each player
+    let cardIdx = 0;
+    // Sort players by seat for distribution logic if needed, but shuffledPlayers is fine order
+    // We already assigned seats. Using shuffledPlayers loop is fine.
+    
+    for (const p of shuffledPlayers) {
+      const hand = await prisma.hand.create({
+        data: {
+          roundId: round.id,
+          playerId: p.id
+        }
+      });
+      
+      const cardsForPlayer = [];
+      for(let i=0; i<handSize; i++) {
+        if(cardIdx < deck.length) {
+          cardsForPlayer.push(deck[cardIdx]);
+          cardIdx++;
+        }
+      }
+      
+      // Save HandCards
+      await Promise.all(cardsForPlayer.map((c, idx) => 
+        prisma.handCard.create({
+          data: {
+            handId: hand.id,
+            cardId: c.id,
+            position: idx
+          }
+        })
+      ));
+    }
+
+    // 6. Update room status
+    const updated = await prisma.room.update({ 
+      where: { id: room.id }, 
+      data: { status: 'RUNNING' }, 
+      include: ROOM_INCLUDE 
+    });
 
     const io = getSocketServer();
     try {
       io?.to(code).emit('room-updated', { room: updated });
+      io?.emit('game-started', { gameId: game.id }); 
       io?.emit('room-list-updated');
     } catch (e) { /* ignore socket errors */ }
 
-    res.json({ room: updated });
+    res.json({ room: updated, game });
   } catch (e) {
     next(e);
   }
 }
 
-export default { listRooms, getRoom, createRoom, updateRoom, deleteRoom, joinRoom, startRoom };
+export async function getRoomGame(req: Request, res: Response, next: NextFunction) {
+  try {
+    const code = req.params.code;
+    console.log(`[getRoomGame] Fetching game for room ${code}`);
+
+    const authReq = req as AuthRequest;
+    const userId = authReq.user?.sub;
+    if (!userId) {
+      console.log('[getRoomGame] No userId');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const room = await prisma.room.findUnique({ where: { code } });
+    if (!room) {
+      console.log('[getRoomGame] Room not found');
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Check if user is player
+    const player = await prisma.roomPlayer.findFirst({ where: { roomId: room.id, userId } });
+    if (!player) {
+      console.log(`[getRoomGame] User ${userId} is not a player in room ${room.id}`);
+      return res.status(403).json({ error: 'Not a player of this room' });
+    }
+
+    const game = await prisma.game.findUnique({
+      where: { roomId: room.id },
+      include: {
+        rounds: {
+          orderBy: { number: 'desc' },
+          take: 1, 
+          include: {
+            predictions: true,
+            hands: {
+              include: { 
+                cards: { 
+                    include: { card: true },
+                    orderBy: { position: 'asc' }
+                } 
+              }
+            },
+            tricks: {
+              orderBy: { index: 'asc' },
+              include: { plays: { include: { handCard: { include: { card: true } } } } }
+            }
+          }
+        }
+      }
+    });
+
+    if (!game) {
+      console.log(`[getRoomGame] Game not found for room ${room.id}`);
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    console.log(`[getRoomGame] Game found, sanitizing...`);
+
+    // Sanitize
+    const currentRound = game.rounds[0];
+    if (currentRound) {
+       const sanitizedHands = currentRound.hands.map((h: any) => {
+         if (h.playerId === player.id) {
+           return h; // My hand
+         } else {
+           // Others' hand: remove cards details
+           return { ...h, cards: [] }; 
+         }
+       });
+       (currentRound as any).hands = sanitizedHands;
+    }
+
+    res.json(game);
+  } catch (e) {
+    console.error('Error in getRoomGame:', e);
+    next(e);
+  }
+}
+
+export default { listRooms, getRoom, createRoom, updateRoom, deleteRoom, joinRoom, startRoom, getRoomGame };

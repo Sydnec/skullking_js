@@ -31,20 +31,8 @@ async function start() {
   app.use(cors(corsOptions));
   app.use(express.json());
 
-  // Debug middleware pour CORS
-  app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    console.log(`🌐 Request from origin: ${origin}`);
-    if (origin) {
-      const allowed = corsOptions.origin === '*' ? ['*'] : Array.isArray(corsOptions.origin) ? corsOptions.origin : [corsOptions.origin];
-      if (allowed[0] !== '*' && !allowed.includes(origin)) {
-        console.log(`❌ Origin ${origin} not in allowed list: ${allowed.join(', ')}`);
-      } else {
-        console.log(`✅ Origin ${origin} is allowed`);
-      }
-    }
-    next();
-  });
+  // Debug middleware pour CORS (désactivé pour réduire le bruit)
+  // app.use((req, res, next) => { ... });
 
   const httpServer = createServer(app);
   
@@ -73,6 +61,8 @@ async function start() {
   const socketMeta: Record<string, { code?: string, userId?: string }> = {};
 
   io.on('connection', (socket) => {
+    console.log(`🔌 New client connected: ${socket.id}`);
+    
     // client announces they are viewing/joining a room
     socket.on('join-room', (payload: any) => {
       try {

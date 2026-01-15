@@ -17,6 +17,8 @@ import Controls from './components/Controls';
 import SettingsPanel from './components/SettingsPanel';
 import { useToast } from '../components/ToastProvider';
 import { useOwnerGuard } from '../hooks/useOwnerGuard';
+import GameTable from './components/GameTable';
+import { useGame } from '../../lib/useGame';
 
 export default function RoomPage() {
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function RoomPage() {
 
   // useRoom hook centralizes fetching + mutations
   const { data: roomData, refetch: refetchRoom, startRoom, updateRoom } = useRoom(code);
+  const { game, refetch: refetchGame, isLoading: gameLoading, isError: gameError } = useGame(code, status === 'RUNNING', token);
   const { deletePlayer } = useRoomPlayers();
   const { showAlert, showConfirm } = useDialog();
   const { ensureOwner, confirmOwnerAction } = useOwnerGuard();
@@ -60,11 +63,12 @@ export default function RoomPage() {
     try {
       // delegate to react-query refetch
       await refetchRoom();
+      if (status === 'RUNNING') refetchGame();
     } catch (err) {
       logDev('fetchRoom failed (useRoom refetch)', err);
       setStatus('UNKNOWN');
     }
-  }, [refetchRoom]);
+  }, [refetchRoom, refetchGame, status]);
 
   useEffect(() => {
     // initial load
@@ -78,6 +82,9 @@ export default function RoomPage() {
     'room-updated': fetchRoom,
     'player-joined': fetchRoom,
     'room-list-updated': fetchRoom,
+    'game-started': () => { fetchRoom(); refetchGame(); },
+    'game-updated': () => { refetchGame(); },
+    'prediction-made': () => { refetchGame(); },
     'presence-updated': (payload: any) => { setRoom((r: any) => ({ ...(r || {}), __presentUserIds: payload?.presentUserIds || [] })); }
   });
 
@@ -106,8 +113,7 @@ export default function RoomPage() {
       const ok = await confirmOwnerAction(room, userId, "Voulez-vous vraiment supprimer ce salon ? Cette action est irréversible.");
       if (!ok) return;
       try {
-        const res = await apiFetchWithAuth(`/rooms/${room.code}`, { method: 'DELETE' }, token || undefined);
-        if (!res.ok) { await showAlert('Erreur lors de la suppression du salon'); return; }
+        await apiFetchWithAuth(`/rooms/${room.code}`, { method: 'DELETE' }, token || undefined);
         router.push('/');
       } catch { await showAlert('Erreur lors de la suppression'); }
       return;
@@ -159,6 +165,30 @@ export default function RoomPage() {
   }
 
   if (status === 'UNKNOWN') return <div className="card">Table inconnue ou erreur</div>;
+
+  if (status === 'RUNNING') {
+     if (gameError) return (
+         <div className="card error">
+             Erreur lors du chargement de la partie. 
+             <button className={styles.startBtn} style={{marginLeft: 10}} onClick={() => refetchGame()}>Réessayer</button>
+         </div>
+     );
+     if (gameLoading && !game) return <div className="card">Chargement de la partie...</div>;
+     
+     return (
+        <div className={styles.singleColumnContainer}>
+           <GameTable room={room} game={game} userId={userId} />
+           {/* Allow owner to abort game or delete room even in game? Maybe add a small menu or just use browser back */}
+           <div style={{ marginTop: 10 }}>
+              { /* Minimal controls could go here if needed */ }
+              <button className={styles.secondaryBtn} onClick={() => router.push('/')}>Quitter (Retour accueil)</button>
+           </div>
+           <div style={{ width: '100%', maxWidth: 900, marginTop: 18 }}>
+              <Chat roomCode={room?.code} visible={!!userId} />
+           </div>
+        </div>
+     );
+  }
 
   // Vue unique empilée pour tous les statuts : header, joueurs, contrôles, paramètres, chat
   return (

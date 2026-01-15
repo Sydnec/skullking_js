@@ -14,6 +14,8 @@
   padding-top: 18px; /* léger espacement au-dessus du contenu */
   padding-bottom: 24px;
   min-height: calc(100vh - 112px); /* prend en compte header + footer réduits */
+  display: flex;
+  flex-direction: column;
 }
 
 .footer {

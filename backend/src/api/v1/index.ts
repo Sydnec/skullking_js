@@ -12,11 +12,15 @@ fs.readdirSync(routesDir, { withFileTypes: true }).forEach((dirent) => {
         const jsRouteFile = path.join(routesDir, dirent.name, `${dirent.name}.routes.js`);
         const routeFile = fs.existsSync(jsRouteFile) ? jsRouteFile : (fs.existsSync(tsRouteFile) ? tsRouteFile : null);
         if (routeFile) {
-            import(routeFile).then((module) => {
-                v1.use(`/${dirent.name}`, module.default);
-            }).catch((err) => {
-                console.error(`Failed to import routes for /v1/${dirent.name} from ${routeFile}:`, err);
-            });
+            try {
+                // Use require() instead of import() for better compatibility with ts-node-dev
+                const module = require(routeFile);
+                const router = module.default || module;
+                v1.use(`/${dirent.name}`, router);
+                console.log(`✅ Routes loaded for /v1/${dirent.name}`);
+            } catch (err) {
+                console.error(`Failed to load routes for /v1/${dirent.name} from ${routeFile}:`, err);
+            }
         } else {
             console.warn(`No route file found for /v1/${dirent.name} (looked for ${tsRouteFile} and ${jsRouteFile})`);
         }

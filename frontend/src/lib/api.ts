@@ -7,17 +7,16 @@
 function getApiBaseUrl(): string {
   // Côté client, utiliser la variable d'environnement
   if (typeof window !== 'undefined') {
-    return process.env.NEXT_PUBLIC_API_URL || 
-           (process.env.NODE_ENV === 'production' ? 'https://sk-api.simonbourlier.fr' : 'http://localhost:3001');
+    // Si NEXT_PUBLIC_API_URL est défini (ex: production spécifique), l'utiliser
+    if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+    
+    // Sinon, retourner une chaîne vide pour utiliser des chemins relatifs (gérés par le proxy Next.js)
+    return '';
   }
   
-  // Côté serveur (SSR), utiliser localhost en développement
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:3001';
-  }
-  
-  // En production côté serveur, utiliser la variable d'environnement ou fallback
-  return process.env.NEXT_PUBLIC_API_URL || 'https://sk-api.simonbourlier.fr';
+  // Côté serveur (SSR)
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  return 'http://localhost:3001';
 }
 
 /**
@@ -34,7 +33,19 @@ export function buildApiUrl(path: string): string {
 function getTokenFromLocalStorage(): string | null {
   try {
     if (typeof window === 'undefined') return null;
-    return window.localStorage.getItem('token') || null;
+    
+    // First try standalone token
+    const token = window.localStorage.getItem('token');
+    if (token) return token;
+    
+    // Then try token inside auth object (set by useAuth)
+    const authRaw = window.localStorage.getItem('auth');
+    if (authRaw) {
+      const auth = JSON.parse(authRaw);
+      if (auth && auth.token) return auth.token;
+    }
+    
+    return null;
   } catch {
     return null;
   }

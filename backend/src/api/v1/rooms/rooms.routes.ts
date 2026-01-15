@@ -5,6 +5,7 @@ import requireAuth from '../../../common/authMiddleware';
 const router = express.Router();
 
 router.get('/', controller.listRooms);
+router.get('/:code/game', requireAuth, controller.getRoomGame);
 router.get('/:code', controller.getRoom);
 router.post('/', requireAuth, controller.createRoom);
 router.put('/:code', requireAuth, controller.updateRoom);
