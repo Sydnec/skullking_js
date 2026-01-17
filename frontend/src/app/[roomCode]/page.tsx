@@ -35,7 +35,7 @@ export default function RoomPage() {
 
   // useRoom hook centralizes fetching + mutations
   const { data: roomData, refetch: refetchRoom, startRoom, updateRoom } = useRoom(code);
-  const { game, refetch: refetchGame, isLoading: gameLoading, isError: gameError } = useGame(code, status === 'RUNNING', token);
+  const { game, refetch: refetchGame, isLoading: gameLoading, isError: gameError } = useGame(code, (status === 'RUNNING' || status === 'FINISHED'), token);
   const { deletePlayer } = useRoomPlayers();
   const { showAlert, showConfirm } = useDialog();
   const { ensureOwner, confirmOwnerAction } = useOwnerGuard();
@@ -65,7 +65,7 @@ export default function RoomPage() {
     try {
       // delegate to react-query refetch
       await refetchRoom();
-      if (status === 'RUNNING') refetchGame();
+      if (status === 'RUNNING' || status === 'FINISHED') refetchGame();
     } catch (err) {
       logDev('fetchRoom failed (useRoom refetch)', err);
       setStatus('UNKNOWN');
@@ -177,7 +177,7 @@ export default function RoomPage() {
 
   if (status === 'UNKNOWN') return <div className="card">Table inconnue ou erreur</div>;
 
-  if (status === 'RUNNING') {
+    if (status === 'RUNNING') {
      if (gameError) return (
          <div className="card error">
              Erreur lors du chargement de la partie. 
@@ -207,6 +207,23 @@ export default function RoomPage() {
         </div>
      );
   }
+
+          if (status === 'FINISHED') {
+           if (gameError) return (
+             <div className="card error">
+               Erreur lors du chargement du récapitulatif. 
+               <button className={styles.startBtn} style={{marginLeft: 10}} onClick={() => refetchGame()}>Réessayer</button>
+             </div>
+           );
+           if (gameLoading && !game) return <div className="card">Chargement du récapitulatif...</div>;
+
+           return (
+             <div className={styles.singleColumnContainer}>
+               <GameOver game={game} room={room} userId={userId} />
+               <Chat roomCode={room?.code} visible={!!userId} />
+             </div>
+           );
+          }
 
   // Vue unique empilée pour tous les statuts : header, joueurs, contrôles, paramètres, chat
   return (
