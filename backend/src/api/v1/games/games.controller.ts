@@ -218,6 +218,11 @@ async function finishRound(gameId: string, roundId: string) {
       where: { id: roundId },
       data: { phase: "DONE" },
     });
+    // Update room status to FINISHED
+    await prisma.room.update({
+      where: { id: game.roomId },
+      data: { status: "FINISHED" },
+    });
   } else {
     // Next round
     const roundsSeq = getRoundSequence(game.format, roomPlayers.length);
@@ -300,6 +305,7 @@ async function finishRound(gameId: string, roundId: string) {
         },
       }),
     }); // Payload included now
+    io.emit("room-list-updated"); // Update lobby list
   }
 }
 

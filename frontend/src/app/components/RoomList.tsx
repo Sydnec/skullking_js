@@ -30,7 +30,11 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
 
   if (loading) return <div className={styles.container}>Chargement des tables…</div>;
   if (isError) return <div className={styles.container}>Erreur: {String((error as Error)?.message || error)}</div>;
-  if (!rooms.length) return <div className={styles.container}>Aucune table trouvée</div>;
+  
+  // Filter out finished games
+  const activeRooms = rooms.filter((r: Room) => r.status !== 'FINISHED');
+  
+  if (!activeRooms.length) return <div className={styles.container}>Aucune table trouvée</div>;
 
   function isMemberOf(r: Room) {
     // considère propriétaire ou joueur listé comme membre
@@ -41,8 +45,8 @@ export default function RoomList({ onJoin }: { onJoin?: (id: string) => void }) 
     return false;
   }
 
-  const myTables = (rooms || []).filter((r: Room) => isMemberOf(r));
-  const publicTables = (rooms || []).filter((r: Room) => !isMemberOf(r));
+  const myTables = (activeRooms || []).filter((r: Room) => isMemberOf(r));
+  const publicTables = (activeRooms || []).filter((r: Room) => !isMemberOf(r));
 
   function handleJoin(r: Room) {
     if (onJoin) onJoin(r.code);
