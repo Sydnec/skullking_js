@@ -1,0 +1,38 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "docker-compose.yml"
+      - ".github/workflows/deploy-backend.yml"
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Deploy to Production
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          script: |
+            # Arrêter le script en cas d'erreur
+            set -e
+
+            # Aller dans le dossier du projet
+            cd ~/skullking_js
+
+            # Récupérer la dernière version du code
+            git pull origin main
+
+            # Reconstruire et redémarrer le conteneur backend
+            # --build force la reconstruction de l'image avec les nouvelles dépendances
+            docker compose up -d --build backend
+
+            # Appliquer les migrations de base de données
+            # -T est nécessaire pour désactiver l'allocation de pseudo-tty en mode non-interactif
+            docker compose exec -T backend npx prisma migrate deploy
+
+            # Nettoyage optionnel des images inutilisées
+            docker image prune -f

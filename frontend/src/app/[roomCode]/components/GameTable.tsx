@@ -67,6 +67,7 @@ function CardView({ card, className, onClick, children }: { card: any, className
 export default function GameTable({ room, game, userId }: { room: any; game: any; userId: string | null }) {
   const [submitting, setSubmitting] = useState(false);
   const [tigressModal, setTigressModal] = useState<{ open: boolean; cardId: string | null }>({ open: false, cardId: null });
+  const [showLastTrick, setShowLastTrick] = useState(false);
 
   if (!game) return <div>Chargement de la partie...</div>;
 
@@ -89,7 +90,6 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
   // Show last COMPLETED trick
   const completedTricks = tricks.filter((t: any) => t.plays && t.plays.length >= players.length);
   const lastTrick = completedTricks.length > 0 ? completedTricks[completedTricks.length - 1] : null;
-  const [showLastTrick, setShowLastTrick] = useState(false);
 
   // Determine Lead Suit
   let leadSuit = null;
