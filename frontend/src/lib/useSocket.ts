@@ -50,7 +50,7 @@ export function ensureSocket(url?: string): Socket {
         randomizationFactor: 0.5,
         transports: ['websocket', 'polling'],
       });
-      singletonUrl = resolved;
+      singletonUrl = resolved || null;
       logDev('socket created', resolved);
 
       // Attach a single central onAny dispatcher which fans out to registered handlers
