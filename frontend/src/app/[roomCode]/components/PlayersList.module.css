@@ -42,13 +42,21 @@
 }
 .kickBtn:hover { background: var(--border); color: var(--accent); }
 
+/* Mobile layout for players list (Lobby) */
 @media (max-width: 900px) {
     .playersGrid {
-        flex-direction: row;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding-bottom: 6px;
-        gap: 8px;
+        flex-direction: column; /* Stack vertically on mobile instead of row */
+        align-items: stretch;
+        overflow-x: hidden;
+        overflow-y: auto;
+        max-height: 60vh; /* Allow scrolling within the list */
+        gap: 12px;
+        padding-right: 4px; /* Space for scrollbar */
     }
-    .playerCard { padding: 6px; }
+    .playerCard { 
+        padding: 12px;
+        background: var(--card-highlight); /* Slightly different bg to separate items */
+        width: 100%;
+        box-sizing: border-box;
+    }
 }

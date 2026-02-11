@@ -68,7 +68,25 @@ export async function submitPrediction(
       where: { id: gameId },
       include: {
         room: { include: { players: true } },
-        rounds: { orderBy: { number: "desc" }, take: 1 },
+        rounds: {
+          orderBy: { number: "desc" },
+          take: 1,
+          include: {
+            tricks: {
+              orderBy: { index: "desc" },
+              take: 1,
+              include: {
+                plays: {
+                  orderBy: { playOrder: "asc" },
+                  include: { handCard: { include: { card: true } } },
+                },
+              },
+            },
+            hands: {
+              include: { cards: { include: { card: true, plays: true } } },
+            },
+          },
+        },
       },
     });
 
@@ -106,7 +124,7 @@ export async function submitPrediction(
     });
     const totalPlayers = game.room.players.length;
 
-    let updatedRound = currentRound;
+    let updatedRound: any = currentRound;
 
     if (predictionsCount >= totalPlayers) {
       // Find starter: for Round 1, dealerId was set. Starter is next player.
@@ -162,6 +180,7 @@ async function finishRound(gameId: string, roundId: string) {
       tricks: {
         include: {
           plays: {
+            orderBy: { playOrder: "asc" },
             include: {
               handCard: {
                 include: { card: true },
@@ -335,7 +354,10 @@ export async function playCard(
               orderBy: { index: "desc" },
               take: 1,
               include: {
-                plays: { include: { handCard: { include: { card: true } } } },
+                plays: {
+                  orderBy: { playOrder: "asc" },
+                  include: { handCard: { include: { card: true } } },
+                },
               },
             },
             hands: {
@@ -375,8 +397,34 @@ export async function playCard(
     const player = players.find((p) => p.userId === userId);
     if (!player) return res.status(403).json({ error: "Not a player" });
 
-    if (player.id !== expectedPlayerId)
-      return res.status(400).json({ error: "Not your turn" });
+    // FIX: If playChoice is active (TIGRESS), the logic below might be affected?
+    // No, turn logic is simple sequential.
+    
+    // Check if it's actually the user's turn
+    if (player.id !== expectedPlayerId) {
+        // Double check: if the previous player played TIGRESS as ESCAPE?
+        // Wait, issue reported: "Played Tigress as Escape, next player played Color, still first player's turn".
+        // This implies the server didn't register the turn passing or failed to update trick state properly?
+        // OR the frontend didn't refresh?
+        // The user says "It was still turn of the player who just played".
+        // That means `playsCount` didn't increase OR `lastPlayerId` is somehow wrong?
+        // But `listGames` -> `getGame` fetches plays.
+        
+        // Actually, could it be that the previous play FAILED?
+        // If Tigress was played as Escape, does it trigger a validation error?
+        // "Validate move": Tigress as Escape is type ESCAPE.
+        // Lead suit Logic: `determineLeadSuit`
+        // If Tigress played as Escape, it's an Escape.
+        // If it was the first card, NO lead suit is established.
+        // Next player plays Color -> Valid (no lead suit).
+        // Why would it be the first player's turn again?
+        
+        // Maybe the play was REJECTED?
+        // "Blocked the game".
+        // If rejected, frontend might not show error clearly.
+        // Let's ensure this check is correct.
+        return res.status(400).json({ error: "Not your turn", expected: expectedPlayerId, actual: player.id });
+    }
 
     // Check if card is in hand
     const hand = currentRound.hands.find((h) => h.playerId === player.id);
@@ -440,7 +488,10 @@ export async function playCard(
     const updatedTrick = await prisma.trick.findUnique({
       where: { id: currentTrick.id },
       include: {
-        plays: { include: { handCard: { include: { card: true } } } },
+        plays: {
+          orderBy: { playOrder: "asc" },
+          include: { handCard: { include: { card: true } } },
+        },
       },
     });
 

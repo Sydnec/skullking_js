@@ -55,7 +55,7 @@
   flex-wrap: wrap;
   justify-content: center;
   align-content: center;
-  gap: 15px;
+  gap: 10px;
   flex: 1;
 }
 
@@ -65,7 +65,7 @@
   border-radius: 12px;
   width: 160px;
   min-height: 200px;
-  padding: 10px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -141,42 +141,64 @@
 }
 
 .cardSlot {
-  height: 100px;
+  height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .emptySlot {
-  width: 50px;
-  height: 75px;
+  width: 80px;
+  height: 120px;
   border: 2px dashed var(--border);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--muted);
-  font-size: 0.7em;
+  font-size: 0.9em;
 }
 
 /* Card Styles */
 .cardItem {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 60px;
-  height: 90px;
-  border: 1px solid #e5e5e5;
+  width: 70px;
+  height: 100px;
+  border: 1px solid #444;
   border-radius: 8px;
   margin: 5px;
   background-color: #fff;
-  color: #000;
+  color: white;
   font-weight: bold;
-  font-size: 0.8rem;
+  font-size: 1rem;
   text-align: center;
   padding: 4px;
   position: relative;
   user-select: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+  background-size: cover;
+  background-position: center;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  overflow: hidden; /* Ensure image doesn't bleed */
+}
+
+.cardIcon {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 1.5rem;
+  z-index: 10;
+  text-shadow: 0 0 5px rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.4);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cardBlack { background-color: #1a1a1a; color: #fff; }
@@ -376,6 +398,8 @@
   font-size: 1.1em;
 }
 
-.cardItem {
-  overflow: hidden; /* Ensure image doesn't bleed */
+.starterBadge {
+    margin-left: auto;
+    font-size: 1.4em;
+    cursor: help;
 }

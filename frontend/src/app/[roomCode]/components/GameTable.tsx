@@ -122,6 +122,8 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
             activePlayerId = currentTrick.starterId;
         } else {
             const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+            // Fix: ensure correct sorting of players array before finding index
+            // Players array is already sorted by seat at the top of component
             const pIndex = players.findIndex((p: any) => p.id === lastPlay.playerId);
             if (pIndex !== -1) {
                 activePlayerId = players[(pIndex + 1) % players.length].id;
@@ -130,7 +132,8 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
      }
   }
 
-  const isMyTurn = currentRound.phase === 'PLAY' && activePlayerId === myPlayer?.id;
+  const trickToCollect = (currentTrick?.winnerId && currentTrick?.plays?.length === players.length) ? currentTrick : null;
+  const isMyTurn = currentRound.phase === 'PLAY' && activePlayerId === myPlayer?.id && !trickToCollect;
 
   // Collect played cards IDs
   const playedCardIds = new Set<string>();
@@ -200,7 +203,6 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
       }
   }
 
-  const trickToCollect = (currentTrick?.winnerId && currentTrick?.plays?.length === players.length) ? currentTrick : null;
   const isWinnerOfTrick = trickToCollect && trickToCollect.winnerId === myPlayer?.id;
 
   return (
@@ -209,14 +211,9 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
         <h2>Manche {currentRound.number} / {game.totalRounds}</h2>
         <div>Phase: {currentRound.phase}</div>
         {trickToCollect && (
-             <div style={{ marginLeft: 20 }}>
-                {isWinnerOfTrick ? (
-                    <button onClick={collectTrick} className={styles.collectBtn}>
-                        Remporter le pli !
-                    </button>
-                ) : (
-                    <span className={styles.waitMsg}>En attente que le vainqueur ramasse...</span>
-                )}
+             <div className={styles.collectContainer}>
+                 Plis terminé ! {isWinnerOfTrick ? 'Vous avez remporté le pli !' : ''}
+                 <button className={styles.collectBtn} onClick={collectTrick}>Ramasser les cartes</button>
              </div>
         )}
         {lastTrick && (
@@ -237,12 +234,27 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
           
           const activePlay = currentTrick?.plays?.find((pl: any) => pl.playerId === p.id);
           const activeCard = activePlay?.handCard?.card;
-          const isActive = activePlayerId === p.id;
+          const isActive = p.id === activePlayerId && !trickToCollect;
+
+          let isRoundStarter = false;
+          if (currentRound.phase === 'PREDICTION' && currentRound.dealerId) {
+              const sorted = [...players];
+              const dealerIndex = sorted.findIndex(pl => pl.id === currentRound.dealerId);
+              if (dealerIndex !== -1) {
+                  const starterIndex = (dealerIndex + 1) % sorted.length;
+                  isRoundStarter = sorted[starterIndex].id === p.id;
+              }
+          }
 
           const playerBoardClass = `${styles.playerBoard} ${isMe ? styles.me : ''} ${isActive ? styles.playerActive : ''}`;
 
           return (
-            <div key={p.id} className={playerBoardClass}>
+            <div key={p.id} className={`${styles.playerBoard} ${p.userId === userId ? styles.me : ''} ${isActive ? styles.playerActive : ''}`}>
+               <div className={styles.playerHeader}>
+                  <span className={styles.pName}>{p.user?.name || p.userName || 'Bot'}</span>
+                  {isRoundStarter && <span title="Commence la manche" className={styles.starterBadge}>🚩</span>}
+                  {isActive && <span className={styles.turnIndicator}>Tour</span>}
+               </div>
               <div style={{ fontWeight: 'bold', display:'flex', justifyContent:'space-between' }}>
                   <span>{p.user?.name || 'Joueur'}</span>
                   {isActive && <span style={{fontSize:'0.8em', color: CARD_COLORS.ACTIVE_BORDER}}>Refléchit...</span>}
@@ -262,6 +274,7 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
                         ) : <span className={styles.pendingText}>En attente...</span>
                        }
                      </div>
+                     {isActive && <div style={{fontSize: '0.8em', color: '#3b82f6', marginBottom: 5}}>⭐ Commence le round</div>}
                      
                      {isMe && !prediction && (
                        <div className={styles.predictionInput}>
@@ -315,8 +328,8 @@ export default function GameTable({ room, game, userId }: { room: any; game: any
                     {lastTrick.plays?.map((pl: any) => (
                         <div key={pl.id} style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
                             <CardView card={pl.handCard.card} className={getCardClass(pl.handCard.card)}>
-                                {pl.playChoice === 'PIRATE' && <span className={styles.cardIcon}>⚔️</span>}
-                                {pl.playChoice === 'ESCAPE' && <span className={styles.cardIcon}>🏳️</span>}
+                                {pl.playChoice === 'PIRATE' && <div className={styles.cardIcon}>⚔️</div>}
+                                {pl.playChoice === 'ESCAPE' && <div className={styles.cardIcon}>🏳️</div>}
                             </CardView>
                             <span style={{fontSize:'0.7em', marginTop:4}}>{players.find((p:any) => p.id === pl.playerId)?.user?.name}</span>
                         </div>
